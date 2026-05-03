@@ -15,3 +15,6 @@ node_modules
 .next/
 .DS_Store
 .vercel
+prompts/v0-02-deeper-buttons.md
+prompts/v0-03-keyboard-hints.md
+.gitignore

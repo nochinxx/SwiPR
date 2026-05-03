@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/mariojillesca/Documents/Claude/Projects/v0-agent/trajectory/**)",
+      "Read(//Users/mariojillesca/Documents/Claude/Projects/v0-agent/trajectory/app/api/mcp/**)"
+    ]
+  }
+}
