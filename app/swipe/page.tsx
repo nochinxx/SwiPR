@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { useChat } from 'ai/react'
+import { useChat } from '@ai-sdk/react'
 import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext } from './_types'
 import { Header } from './_components/header'
 import { CardStack, ActionButtons } from './_components/card-stack'
