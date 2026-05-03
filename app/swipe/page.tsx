@@ -14,6 +14,14 @@ import { SessionSummary } from './_components/session-summary'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
+function parseRepoInput(input: string): { owner: string; repo: string } | null {
+  const urlMatch = /github\.com\/([^/]+)\/([^/\s]+)/.exec(input)
+  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2].replace(/\.git$/, '') }
+  const parts = input.trim().split('/')
+  if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], repo: parts[1] }
+  return null
+}
+
 const SKELETON_CONTEXT: AIContext = {
   risk: { score: 0, rationale: 'Loading…' },
   summary: ['Loading context…'],
@@ -23,7 +31,7 @@ const SKELETON_CONTEXT: AIContext = {
 
 export default function SwipePage() {
   // Repo state
-  const [repoInput, setRepoInput] = useState('resend/resend-node')
+  const [repoInput, setRepoInput] = useState('')
   const [repoId, setRepoId] = useState<string | null>(null)
   const [isIngesting, setIsIngesting] = useState(false)
 
@@ -63,10 +71,52 @@ export default function SwipePage() {
     toolCall: m.toolInvocations?.[0]?.toolName,
   }))
 
-  // Load repo function
+  const startSession = useCallback(async (repoId: string) => {
+    const sessionRes = await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoId }),
+    })
+    const session = await sessionRes.json()
+    setSessionId(session.id)
+  }, [])
+
+  // Fast path: try DB first, no GitHub call
+  const loadFromCache = useCallback(async (repoStr: string) => {
+    const parsed = parseRepoInput(repoStr)
+    if (!parsed) return false
+    const { owner, repo } = parsed
+
+    setRepoInput(repoStr)
+    setIsLoadingPRs(true)
+    setPrList([])
+    setCurrentIndex(0)
+    setContext(null)
+    setStreak(0)
+    setStats({ approved: 0, changesRequested: 0, skipped: 0 })
+    setLastAction(null)
+
+    try {
+      const res = await fetch(`/api/prs?owner=${owner}&repo=${repo}`)
+      if (!res.ok) return false
+      const data = await res.json()
+      if (!data.prs?.length) return false
+      setPrList(data.prs)
+      setRepoId(data.repoId ?? null)
+      if (data.repoId) await startSession(data.repoId)
+      return true
+    } catch {
+      return false
+    } finally {
+      setIsLoadingPRs(false)
+    }
+  }, [startSession])
+
+  // Full load: ingest from GitHub then read from DB
   const loadRepo = useCallback(async (repoStr: string) => {
-    const [owner, repo] = repoStr.split('/')
-    if (!owner || !repo) return
+    const parsed = parseRepoInput(repoStr)
+    if (!parsed) return
+    const { owner, repo } = parsed
 
     setRepoInput(repoStr)
     setIsIngesting(true)
@@ -79,7 +129,6 @@ export default function SwipePage() {
     setLastAction(null)
 
     try {
-      // 1. Ingest (fetch from GitHub + embed + store in DB)
       await fetch('/api/ingest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,29 +136,18 @@ export default function SwipePage() {
       })
       setIsIngesting(false)
 
-      // 2. Load PRs from DB
       const res = await fetch(`/api/prs?owner=${owner}&repo=${repo}`)
       const data = await res.json()
       setPrList(data.prs ?? [])
       setRepoId(data.repoId ?? null)
-
-      // 3. Create session
-      if (data.repoId) {
-        const sessionRes = await fetch('/api/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repoId: data.repoId }),
-        })
-        const session = await sessionRes.json()
-        setSessionId(session.id)
-      }
+      if (data.repoId) await startSession(data.repoId)
     } catch (error) {
       console.error('[v0] Failed to load repo:', error)
     } finally {
       setIsIngesting(false)
       setIsLoadingPRs(false)
     }
-  }, [])
+  }, [startSession])
 
   // Load context for active PR
   const loadContext = useCallback(async (pr: PullRequest) => {
@@ -127,10 +165,11 @@ export default function SwipePage() {
     }
   }, [])
 
-  // Load repo on mount
-  useEffect(() => {
-    loadRepo('resend/resend-node')
-  }, [loadRepo])
+  // Try cache first; only ingest if the DB has no data for this repo
+  const handleRepoSubmit = useCallback(async (repoStr: string) => {
+    const hit = await loadFromCache(repoStr)
+    if (!hit) await loadRepo(repoStr)
+  }, [loadFromCache, loadRepo])
 
   // Load context when PR changes
   useEffect(() => {
@@ -235,8 +274,12 @@ export default function SwipePage() {
         const data = await res.json()
         const text = data?.content?.[0]?.text
         if (!text) return 'No result'
-        const parsed = JSON.parse(text)
-        return JSON.stringify(parsed, null, 2)
+        try {
+          const parsed = JSON.parse(text)
+          return JSON.stringify(parsed, null, 2)
+        } catch {
+          return text
+        }
       } catch (error) {
         console.error('[v0] Deeper action failed:', error)
         return 'Failed to fetch result'
@@ -287,7 +330,7 @@ export default function SwipePage() {
         streak={streak}
         defaultRepo={repoInput}
         onToggleHints={() => setHintsOpen(true)}
-        onRepoSubmit={loadRepo}
+        onRepoSubmit={handleRepoSubmit}
         isLoading={isLoading}
       />
 
@@ -305,8 +348,11 @@ export default function SwipePage() {
               <div className="font-mono text-sm text-muted-foreground animate-pulse">Loading…</div>
             </div>
           ) : prList.length === 0 ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-3">
-              <div className="font-mono text-sm text-muted-foreground">No open PRs found.</div>
+            <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+              <div className="font-mono text-sm text-foreground">Paste a GitHub repo to start reviewing</div>
+              <div className="font-mono text-xs text-muted-foreground">
+                e.g. <span className="text-foreground">resend/resend-node</span> or a full GitHub URL
+              </div>
             </div>
           ) : currentIndex >= prList.length ? (
             <SessionSummary

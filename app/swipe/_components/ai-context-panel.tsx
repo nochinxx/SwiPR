@@ -125,12 +125,18 @@ export function AIContextPanel({ context, messages, onSendMessage, onDeeperActio
         >
           <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contributor</div>
           <div className="mt-3 flex items-center gap-3">
-            <img
-              src={context.contributor.avatarUrl}
-              alt={context.contributor.handle}
-              className="h-8 w-8 rounded-full"
-              crossOrigin="anonymous"
-            />
+            {context.contributor.avatarUrl ? (
+              <img
+                src={context.contributor.avatarUrl}
+                alt={context.contributor.handle}
+                className="h-8 w-8 rounded-full"
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center font-mono text-xs text-muted-foreground">
+                {context.contributor.handle[0]?.toUpperCase() ?? '?'}
+              </div>
+            )}
             <div>
               <div className="font-mono text-sm text-foreground">@{context.contributor.handle}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
