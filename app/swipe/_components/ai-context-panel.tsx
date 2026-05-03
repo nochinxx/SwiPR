@@ -3,16 +3,28 @@
 import { motion } from 'framer-motion'
 import type { AIContext, ChatMessage, SimilarPR } from '../_types'
 import { useState } from 'react'
-import { GitMerge, GitPullRequest, X } from 'lucide-react'
+import { GitMerge, GitPullRequest, X, AlertTriangle, Search, FlaskConical, GitCompare, Loader2 } from 'lucide-react'
+
+type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
 interface AIContextPanelProps {
   context: AIContext
   messages: ChatMessage[]
   onSendMessage: (message: string) => void
+  onDeeperAction?: (action: DeeperAction) => Promise<string>
 }
 
-export function AIContextPanel({ context, messages, onSendMessage }: AIContextPanelProps) {
+const DEEPER_ACTIONS = [
+  { key: 'risk_verbose' as DeeperAction, label: 'Why is this risky?', icon: AlertTriangle },
+  { key: 'callers' as DeeperAction, label: 'Show me callers', icon: Search },
+  { key: 'tests' as DeeperAction, label: 'What tests cover this?', icon: FlaskConical },
+  { key: 'compare' as DeeperAction, label: 'Compare with main', icon: GitCompare },
+]
+
+export function AIContextPanel({ context, messages, onSendMessage, onDeeperAction }: AIContextPanelProps) {
   const [input, setInput] = useState('')
+  const [loadingAction, setLoadingAction] = useState<DeeperAction | null>(null)
+  const [deeperResult, setDeeperResult] = useState<{ action: DeeperAction; label: string; content: string } | null>(null)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,9 +34,24 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
     }
   }
 
-  const handleQuickAction = (action: string) => {
-    console.log('[v0] Quick action clicked:', action)
-    onSendMessage(action)
+  const handleDeeperClick = async (action: DeeperAction, label: string) => {
+    if (!onDeeperAction || loadingAction) return
+    
+    setLoadingAction(action)
+    setDeeperResult(null)
+    
+    try {
+      const result = await onDeeperAction(action)
+      setDeeperResult({ action, label, content: result })
+    } catch (error) {
+      setDeeperResult({ action, label, content: 'Failed to load result. Please try again.' })
+    } finally {
+      setLoadingAction(null)
+    }
+  }
+
+  const dismissResult = () => {
+    setDeeperResult(null)
   }
 
   const getRiskColor = (score: number) => {
@@ -114,24 +141,69 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
           </div>
         </motion.div>
 
-        {/* Deeper section */}
+        {/* DEEPER section */}
         <div className="border-t border-border pt-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-[#FF0080]">Deeper</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Want more? Ask the assistant or tap a shortcut.</p>
+          <h3 className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">DEEPER</h3>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {['Why is this risky?', 'Show me callers', 'What tests cover this?', 'Compare with main'].map(
-              (action) => (
-                <button
-                  key={action}
-                  onClick={() => handleQuickAction(action)}
-                  className="rounded-full border border-[#FF0080] bg-card px-3 py-1.5 text-xs font-medium text-[#FF0080] transition-colors hover:bg-[#FF0080]/10"
+            {DEEPER_ACTIONS.map(({ key, label, icon: Icon }) => {
+              const isLoading = loadingAction === key
+              const isDisabled = !onDeeperAction || (loadingAction !== null && !isLoading)
+              
+              return (
+                <motion.button
+                  key={key}
+                  onClick={() => handleDeeperClick(key, label)}
+                  disabled={isDisabled}
+                  whileHover={!isDisabled ? { scale: 1.02 } : undefined}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-mono text-xs transition-all ${
+                    isDisabled && !isLoading
+                      ? 'cursor-not-allowed border-muted-foreground/30 text-muted-foreground/50'
+                      : isLoading
+                        ? 'border-[#FF0080] text-[#FF0080] animate-pulse'
+                        : 'cursor-pointer border-[#FF0080]/40 text-[#FF0080] hover:border-[#FF0080] hover:bg-[#FF0080]/10'
+                  }`}
                 >
-                  {action}
-                </button>
+                  {isLoading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+                    >
+                      <Loader2 className="h-3 w-3" />
+                    </motion.div>
+                  ) : (
+                    <Icon className="h-3 w-3" />
+                  )}
+                  {label}
+                </motion.button>
               )
-            )}
+            })}
           </div>
+
+          {/* Deeper result card */}
+          {deeperResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="relative mt-3 rounded-xl border border-[#FF0080]/20 bg-[#FF0080]/5 p-3"
+            >
+              <button
+                onClick={dismissResult}
+                className="absolute right-2 top-2 rounded p-0.5 text-muted-foreground transition-colors hover:bg-[#FF0080]/10 hover:text-[#FF0080]"
+                aria-label="Dismiss"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <div className="font-mono text-[10px] uppercase tracking-wider text-[#FF0080]">
+                {deeperResult.label}
+              </div>
+              <p className="mt-2 whitespace-pre-wrap font-mono text-xs text-foreground">
+                {deeperResult.content}
+              </p>
+            </motion.div>
+          )}
         </div>
 
         {/* Chat thread */}

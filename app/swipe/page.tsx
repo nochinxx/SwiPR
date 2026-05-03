@@ -71,6 +71,54 @@ export default function SwipePage() {
     }, 500)
   }, [])
 
+  const handleDeeperAction = useCallback(async (action: 'risk_verbose' | 'callers' | 'tests' | 'compare'): Promise<string> => {
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+
+    const responses: Record<typeof action, string> = {
+      risk_verbose: `This PR modifies core authentication logic in src/auth/session.ts.
+
+Key concerns:
+• Changes to token validation could affect all authenticated routes
+• No migration path provided for existing sessions
+• Rate limiting logic removed without replacement
+
+The contributor has 3 prior PRs merged, but none touched auth code.`,
+      callers: `Functions affected by this change:
+
+src/api/middleware/auth.ts
+  └─ validateSession() - called 47 times
+  └─ refreshToken() - called 12 times
+
+src/api/routes/user.ts
+  └─ getCurrentUser() - called 8 times
+
+src/api/routes/billing.ts
+  └─ checkSubscription() - called 23 times`,
+      tests: `Test coverage for affected files:
+
+src/auth/session.ts
+  ├─ session.test.ts (14 tests, 2 failing)
+  └─ integration/auth.test.ts (8 tests, passing)
+
+Missing coverage:
+  • No tests for edge case: expired refresh token
+  • No tests for concurrent session handling`,
+      compare: `Diff summary vs main:
+
++142 lines added
+-87 lines removed
+3 files changed
+
+Key differences:
+• session.ts: Token struct changed from { token, expires } to { jwt, metadata }
+• middleware/auth.ts: Now uses async validation
+• types/auth.d.ts: New SessionMetadata interface added`,
+    }
+
+    return responses[action]
+  }, [])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -130,13 +178,13 @@ export default function SwipePage() {
         {/* Right column - AI Context Panel (desktop only) */}
         <aside className="sticky top-20 hidden h-[calc(100vh-120px)] w-[40%] overflow-hidden lg:block">
           <div className="h-full rounded-xl border border-border bg-secondary/50 p-4">
-            <AIContextPanel context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} />
+            <AIContextPanel context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} onDeeperAction={handleDeeperAction} />
           </div>
         </aside>
       </main>
 
       {/* Mobile context sheet */}
-      <MobileContextSheet context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} />
+      <MobileContextSheet context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} onDeeperAction={handleDeeperAction} />
 
       <BottomStrip stats={stats} />
     </div>
