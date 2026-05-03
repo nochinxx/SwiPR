@@ -1,4 +1,6 @@
 export interface PullRequest {
+  id: string
+  repoId: string
   number: number
   state: 'open' | 'closed' | 'merged'
   title: string
