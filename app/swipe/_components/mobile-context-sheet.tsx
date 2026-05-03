@@ -5,13 +5,16 @@ import { useState } from 'react'
 import type { AIContext, ChatMessage } from '../_types'
 import { AIContextPanel } from './ai-context-panel'
 
+type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
+
 interface MobileContextSheetProps {
   context: AIContext
   messages: ChatMessage[]
   onSendMessage: (message: string) => void
+  onDeeperAction?: (action: DeeperAction) => Promise<string>
 }
 
-export function MobileContextSheet({ context, messages, onSendMessage }: MobileContextSheetProps) {
+export function MobileContextSheet({ context, messages, onSendMessage, onDeeperAction }: MobileContextSheetProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dragControls = useDragControls()
 
@@ -66,7 +69,7 @@ export function MobileContextSheet({ context, messages, onSendMessage }: MobileC
                 <div className="h-1 w-12 rounded-full bg-muted-foreground/30" />
               </div>
 
-              <AIContextPanel context={context} messages={messages} onSendMessage={onSendMessage} />
+              <AIContextPanel context={context} messages={messages} onSendMessage={onSendMessage} onDeeperAction={onDeeperAction} />
             </motion.div>
           </>
         )}
