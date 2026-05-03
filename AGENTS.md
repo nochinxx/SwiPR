@@ -76,20 +76,23 @@ Last updated: 2026-05-03. Update this when you finish work.
   - `.env.example`, `drizzle.config.ts`, `db:push` + `db:studio` scripts
 
 ### In progress
-- v0 generations for remaining UI components (run these prompts in `prompts/`):
-  - `prompts/v0-02-deeper-buttons.md` — DeeperButtons + enhanced AI panel
-  - `prompts/v0-03-keyboard-hints.md` — Keyboard hints overlay
-  - `prompts/v0-04-session-summary.md` — End-of-session summary card
+- v0 working on `prompts/v0-03-keyboard-hints.md` (session summary / keyboard hints)
+
+### Done (v0 UI)
+- `prompts/v0-02-deeper-buttons.md` — DeeperButtons + enhanced AI panel ✓ (commit df58e2d)
 
 ### Pending — in priority order
-1. Spin up Vercel project + Neon DB + AI Gateway key (infrastructure).
-2. `cp .env.example .env.local` and fill in credentials.
-3. Enable pgvector: `CREATE EXTENSION IF NOT EXISTS vector;` in Neon SQL editor.
-4. `pnpm run db:push` then add HNSW indexes (see Gotchas).
-5. Wire UI side panel to surface MCP tools (parallel calls on card-active).
-6. Pre-cache 3 Resend repos: `POST /api/ingest` for resend/resend-node, resend/resend-py, resend/react-email.
-7. Connect Claude Desktop to deployed MCP for the killer demo moment.
-8. Demo prep — pitch rehearsal, fallback video, end-to-end test.
+1. Run `prompts/v0-05-wire-real-data.md` in v0 — wires page.tsx to real API, useChat, onDeeperAction.
+2. Pre-cache 3 Resend repos: `POST /api/ingest` for resend/resend-node, resend/resend-py, resend/react-email.
+3. Connect Claude Desktop to deployed MCP for the killer demo moment.
+4. Demo prep — pitch rehearsal, fallback video, end-to-end test.
+
+### Backend API routes added (Claude Code, 2026-05-03)
+- `lib/diff.ts` — patch parser + relativeTime helper
+- `app/api/prs/route.ts` — GET /api/prs?owner=&repo= (real PRs from DB in UI shape)
+- `app/api/context/route.ts` — GET /api/context?prId= (4 surface tools in parallel)
+- `app/api/session/route.ts` — POST /api/session, GET /api/session?id=
+- `prompts/v0-05-wire-real-data.md` — v0 prompt to wire frontend to real data
 
 ### Cut from MVP (don't be tempted)
 - GitHub OAuth — read-only public is enough; 60/hr rate limit is fine for demo

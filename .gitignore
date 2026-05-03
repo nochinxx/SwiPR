@@ -18,3 +18,4 @@ node_modules
 prompts/v0-02-deeper-buttons.md
 prompts/v0-03-keyboard-hints.md
 .gitignore
+prompts/v0-05-wire-real-data.md
