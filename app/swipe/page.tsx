@@ -19,6 +19,7 @@ import { AIContextPanel } from './_components/ai-context-panel'
 import { BottomStrip } from './_components/bottom-strip'
 import { MobileContextSheet } from './_components/mobile-context-sheet'
 import { KeyboardHints } from './_components/keyboard-hints'
+import { SessionSummary } from './_components/session-summary'
 
 export default function SwipePage() {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -48,7 +49,7 @@ export default function SwipePage() {
     }
 
     // Move to next card
-    setCurrentIndex((prev) => Math.min(prev + 1, MOCK_PRS.length - 1))
+    setCurrentIndex((prev) => prev + 1)
   }, [])
 
   const handleSendMessage = useCallback((content: string) => {
@@ -70,6 +71,16 @@ export default function SwipePage() {
       }
       setMessages((prev) => [...prev, assistantMessage])
     }, 500)
+  }, [])
+
+  const handleLoadRepo = useCallback((repo: string) => {
+    console.log('[v0] Loading repo:', repo)
+    // Reset state for new repo
+    setCurrentIndex(0)
+    setStreak(0)
+    setStats({ approved: 0, changesRequested: 0, skipped: 0 })
+    setMessages([])
+    setLastAction(null)
   }, [])
 
   const handleDeeperAction = useCallback(async (action: 'risk_verbose' | 'callers' | 'tests' | 'compare'): Promise<string> => {
@@ -165,23 +176,39 @@ Key differences:
       />
 
       <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-8 px-4 py-6 pb-24 lg:flex-row lg:px-8 lg:pb-20">
-        {/* Left column - Card stack */}
+        {/* Left column - Card stack or Session Summary */}
         <div className="w-full lg:w-[60%]">
-          <CardStack prs={MOCK_PRS} currentIndex={currentIndex} onSwipe={handleSwipe} />
+          {currentIndex >= MOCK_PRS.length ? (
+            <SessionSummary
+              stats={{
+                approved: stats.approved,
+                changesRequested: stats.changesRequested,
+                skipped: stats.skipped,
+                totalReviewed: stats.approved + stats.changesRequested + stats.skipped,
+              }}
+              streak={streak}
+              repoName={MOCK_REPO}
+              onLoadRepo={handleLoadRepo}
+            />
+          ) : (
+            <>
+              <CardStack prs={MOCK_PRS} currentIndex={currentIndex} onSwipe={handleSwipe} />
 
-          {/* Action buttons - visible on all screens */}
-          <ActionButtons onAction={handleSwipe} />
+              {/* Action buttons - visible on all screens */}
+              <ActionButtons onAction={handleSwipe} />
 
-          {/* Streak animation */}
-          {lastAction && lastAction !== 'skip' && (
-            <motion.div
-              key={streak}
-              initial={{ scale: 1.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="mt-4 text-center font-mono text-sm text-muted-foreground"
-            >
-              {streak >= 2 && `${streak} in a row!`}
-            </motion.div>
+              {/* Streak animation */}
+              {lastAction && lastAction !== 'skip' && (
+                <motion.div
+                  key={streak}
+                  initial={{ scale: 1.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="mt-4 text-center font-mono text-sm text-muted-foreground"
+                >
+                  {streak >= 2 && `${streak} in a row!`}
+                </motion.div>
+              )}
+            </>
           )}
         </div>
 
