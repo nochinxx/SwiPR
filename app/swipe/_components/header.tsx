@@ -9,10 +9,18 @@ interface HeaderProps {
   streak: number
   defaultRepo?: string
   onToggleHints?: () => void
+  onRepoSubmit?: (repo: string) => void
+  isLoading?: boolean
 }
 
-export function Header({ currentPR, totalPRs, streak, defaultRepo = '', onToggleHints }: HeaderProps) {
+export function Header({ currentPR, totalPRs, streak, defaultRepo = '', onToggleHints, onRepoSubmit, isLoading }: HeaderProps) {
   const [repo, setRepo] = useState(defaultRepo)
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && onRepoSubmit && repo.trim()) {
+      onRepoSubmit(repo.trim())
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-sm px-4 lg:px-8">
@@ -29,11 +37,13 @@ export function Header({ currentPR, totalPRs, streak, defaultRepo = '', onToggle
             type="text"
             value={repo}
             onChange={(e) => setRepo(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="owner/repo (e.g. resend/resend-node)"
-            className="w-full rounded-full border border-border bg-background px-4 py-2 pr-16 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            disabled={isLoading}
+            className="w-full rounded-full border border-border bg-background px-4 py-2 pr-16 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
           />
           <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">
-            ↵ load
+            {isLoading ? 'loading…' : '↵ load'}
           </span>
         </div>
       </div>

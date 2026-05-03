@@ -2,17 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import type { SwipeAction, ChatMessage, SessionStats } from './_types'
-import {
-  MOCK_PRS,
-  MOCK_AI_CONTEXT,
-  MOCK_CHAT_MESSAGES,
-  MOCK_SESSION_STATS,
-  MOCK_STREAK,
-  MOCK_TOTAL_PRS,
-  MOCK_CURRENT_PR_INDEX,
-  MOCK_REPO,
-} from './_data'
+import { useChat } from '@ai-sdk/react'
+import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext } from './_types'
 import { Header } from './_components/header'
 import { CardStack, ActionButtons } from './_components/card-stack'
 import { AIContextPanel } from './_components/ai-context-panel'
@@ -21,120 +12,242 @@ import { MobileContextSheet } from './_components/mobile-context-sheet'
 import { KeyboardHints } from './_components/keyboard-hints'
 import { SessionSummary } from './_components/session-summary'
 
+type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
+
+const SKELETON_CONTEXT: AIContext = {
+  risk: { score: 0, rationale: 'Loading…' },
+  summary: ['Loading context…'],
+  similarPRs: [],
+  contributor: { handle: '…', avatarUrl: '', priorPRs: 0, mergeRate: 0, firstPR: '…' },
+}
+
 export default function SwipePage() {
+  // Repo state
+  const [repoInput, setRepoInput] = useState('resend/resend-node')
+  const [repoId, setRepoId] = useState<string | null>(null)
+  const [isIngesting, setIsIngesting] = useState(false)
+
+  // PR state
+  const [prList, setPrList] = useState<PullRequest[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [streak, setStreak] = useState(MOCK_STREAK)
-  const [stats, setStats] = useState<SessionStats>(MOCK_SESSION_STATS)
-  const [messages, setMessages] = useState<ChatMessage[]>(MOCK_CHAT_MESSAGES)
+  const [isLoadingPRs, setIsLoadingPRs] = useState(false)
+
+  // Context state
+  const [context, setContext] = useState<AIContext | null>(null)
+  const [isLoadingContext, setIsLoadingContext] = useState(false)
+
+  // Session
+  const [sessionId, setSessionId] = useState<string | null>(null)
+
+  // Streak + stats
+  const [streak, setStreak] = useState(0)
+  const [stats, setStats] = useState<SessionStats>({ approved: 0, changesRequested: 0, skipped: 0 })
   const [lastAction, setLastAction] = useState<SwipeAction | null>(null)
   const [hintsOpen, setHintsOpen] = useState(false)
 
-  const handleSwipe = useCallback((action: SwipeAction) => {
-    console.log('[v0] Action:', action)
-    setLastAction(action)
+  // useChat for AI panel
+  const { messages: chatMessages, append, isLoading: isChatLoading } = useChat({
+    api: '/api/chat',
+    body: {
+      prId: prList[currentIndex]?.id,
+      repoId,
+      sessionId,
+    },
+  })
 
-    // Update stats
-    setStats((prev) => ({
-      ...prev,
-      approved: action === 'approve' ? prev.approved + 1 : prev.approved,
-      changesRequested: action === 'changes' ? prev.changesRequested + 1 : prev.changesRequested,
-      skipped: action === 'skip' ? prev.skipped + 1 : prev.skipped,
-    }))
+  // Map useChat messages to ChatMessage[]
+  const messages: ChatMessage[] = chatMessages.map((m) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant',
+    content: m.content,
+    toolCall: m.toolInvocations?.[0]?.toolName,
+  }))
 
-    // Update streak
-    if (action !== 'skip') {
-      setStreak((prev) => prev + 1)
-    } else {
-      setStreak(0)
-    }
+  // Load repo function
+  const loadRepo = useCallback(async (repoStr: string) => {
+    const [owner, repo] = repoStr.split('/')
+    if (!owner || !repo) return
 
-    // Move to next card
-    setCurrentIndex((prev) => prev + 1)
-  }, [])
-
-  const handleSendMessage = useCallback((content: string) => {
-    console.log('[v0] Sending message:', content)
-    const newMessage: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-    }
-    setMessages((prev) => [...prev, newMessage])
-
-    // Simulate assistant response
-    setTimeout(() => {
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `I'll analyze that for you. Based on the PR changes, here's what I found...`,
-        toolCall: 'analyze_code',
-      }
-      setMessages((prev) => [...prev, assistantMessage])
-    }, 500)
-  }, [])
-
-  const handleLoadRepo = useCallback((repo: string) => {
-    console.log('[v0] Loading repo:', repo)
-    // Reset state for new repo
+    setRepoInput(repoStr)
+    setIsIngesting(true)
+    setIsLoadingPRs(true)
+    setPrList([])
     setCurrentIndex(0)
+    setContext(null)
     setStreak(0)
     setStats({ approved: 0, changesRequested: 0, skipped: 0 })
-    setMessages([])
     setLastAction(null)
-  }, [])
 
-  const handleDeeperAction = useCallback(async (action: 'risk_verbose' | 'callers' | 'tests' | 'compare'): Promise<string> => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1200))
+    try {
+      // 1. Ingest (fetch from GitHub + embed + store in DB)
+      await fetch('/api/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner, name: repo }),
+      })
+      setIsIngesting(false)
 
-    const responses: Record<typeof action, string> = {
-      risk_verbose: `This PR modifies core authentication logic in src/auth/session.ts.
+      // 2. Load PRs from DB
+      const res = await fetch(`/api/prs?owner=${owner}&repo=${repo}`)
+      const data = await res.json()
+      setPrList(data.prs ?? [])
+      setRepoId(data.repoId ?? null)
 
-Key concerns:
-• Changes to token validation could affect all authenticated routes
-• No migration path provided for existing sessions
-• Rate limiting logic removed without replacement
-
-The contributor has 3 prior PRs merged, but none touched auth code.`,
-      callers: `Functions affected by this change:
-
-src/api/middleware/auth.ts
-  └─ validateSession() - called 47 times
-  └─ refreshToken() - called 12 times
-
-src/api/routes/user.ts
-  └─ getCurrentUser() - called 8 times
-
-src/api/routes/billing.ts
-  └─ checkSubscription() - called 23 times`,
-      tests: `Test coverage for affected files:
-
-src/auth/session.ts
-  ├─ session.test.ts (14 tests, 2 failing)
-  └─ integration/auth.test.ts (8 tests, passing)
-
-Missing coverage:
-  • No tests for edge case: expired refresh token
-  • No tests for concurrent session handling`,
-      compare: `Diff summary vs main:
-
-+142 lines added
--87 lines removed
-3 files changed
-
-Key differences:
-• session.ts: Token struct changed from { token, expires } to { jwt, metadata }
-• middleware/auth.ts: Now uses async validation
-• types/auth.d.ts: New SessionMetadata interface added`,
+      // 3. Create session
+      if (data.repoId) {
+        const sessionRes = await fetch('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repoId: data.repoId }),
+        })
+        const session = await sessionRes.json()
+        setSessionId(session.id)
+      }
+    } catch (error) {
+      console.error('[v0] Failed to load repo:', error)
+    } finally {
+      setIsIngesting(false)
+      setIsLoadingPRs(false)
     }
-
-    return responses[action]
   }, [])
+
+  // Load context for active PR
+  const loadContext = useCallback(async (pr: PullRequest) => {
+    if (!pr.id) return
+    setIsLoadingContext(true)
+    setContext(null)
+    try {
+      const res = await fetch(`/api/context?prId=${pr.id}`)
+      const ctx = await res.json()
+      setContext(ctx)
+    } catch (error) {
+      console.error('[v0] Failed to load context:', error)
+    } finally {
+      setIsLoadingContext(false)
+    }
+  }, [])
+
+  // Load repo on mount
+  useEffect(() => {
+    loadRepo('resend/resend-node')
+  }, [loadRepo])
+
+  // Load context when PR changes
+  useEffect(() => {
+    if (prList[currentIndex]) {
+      loadContext(prList[currentIndex])
+    }
+  }, [currentIndex, prList, loadContext])
+
+  // Handle swipe action
+  const handleSwipe = useCallback(
+    async (action: SwipeAction) => {
+      const pr = prList[currentIndex]
+      setLastAction(action)
+
+      // Update stats
+      setStats((prev) => ({
+        ...prev,
+        approved: action === 'approve' ? prev.approved + 1 : prev.approved,
+        changesRequested: action === 'changes' ? prev.changesRequested + 1 : prev.changesRequested,
+        skipped: action === 'skip' ? prev.skipped + 1 : prev.skipped,
+      }))
+
+      // Update streak
+      setStreak((prev) => (action !== 'skip' ? prev + 1 : 0))
+
+      // Move to next card
+      setCurrentIndex((prev) => prev + 1)
+
+      // Record decision in DB (fire and forget)
+      if (pr?.id && sessionId) {
+        fetch('/api/mcp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            method: 'tools/call',
+            params: { name: 'record_decision', arguments: { session_id: sessionId, pr_id: pr.id, action } },
+          }),
+        }).catch(console.error)
+      }
+    },
+    [prList, currentIndex, sessionId]
+  )
+
+  // Handle chat message
+  const handleSendMessage = useCallback(
+    (content: string) => {
+      append({ role: 'user', content })
+    },
+    [append]
+  )
+
+  // Handle deeper action
+  const handleDeeperAction = useCallback(
+    async (action: DeeperAction): Promise<string> => {
+      const pr = prList[currentIndex]
+      if (!pr?.id || !repoId) return 'No active PR'
+
+      const toolCall = {
+        risk_verbose: () =>
+          fetch('/api/mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'tools/call',
+              params: { name: 'risk_score', arguments: { pr_id: pr.id, verbose: true } },
+            }),
+          }),
+        callers: () =>
+          fetch('/api/mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'tools/call',
+              params: {
+                name: 'find_callers',
+                arguments: { repo_id: repoId, function_name: pr.title.match(/`(\w+)`/)?.[1] ?? 'main' },
+              },
+            }),
+          }),
+        tests: () =>
+          fetch('/api/mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'tools/call',
+              params: { name: 'find_related_tests', arguments: { pr_id: pr.id } },
+            }),
+          }),
+        compare: () =>
+          fetch('/api/mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              method: 'tools/call',
+              params: { name: 'compare_with', arguments: { repo_id: repoId, pr_id: pr.id, ref: 'main' } },
+            }),
+          }),
+      }[action]
+
+      try {
+        const res = await toolCall()
+        const data = await res.json()
+        const text = data?.content?.[0]?.text
+        if (!text) return 'No result'
+        const parsed = JSON.parse(text)
+        return JSON.stringify(parsed, null, 2)
+      } catch (error) {
+        console.error('[v0] Deeper action failed:', error)
+        return 'Failed to fetch result'
+      }
+    },
+    [prList, currentIndex, repoId]
+  )
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input (except for ? which should work everywhere)
       const isInputFocused = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
 
       if (e.key === '?') {
@@ -143,42 +256,59 @@ Key differences:
         return
       }
 
-      if (isInputFocused) {
-        return
-      }
+      if (isInputFocused) return
 
       switch (e.key.toLowerCase()) {
         case 'j':
-          handleSwipe('approve')
+          if (currentIndex < prList.length) handleSwipe('approve')
           break
         case 'f':
-          handleSwipe('changes')
+          if (currentIndex < prList.length) handleSwipe('changes')
           break
         case ' ':
           e.preventDefault()
-          handleSwipe('skip')
+          if (currentIndex < prList.length) handleSwipe('skip')
           break
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleSwipe])
+  }, [handleSwipe, currentIndex, prList.length])
+
+  const isLoading = isIngesting || isLoadingPRs
+  const displayContext = isLoadingContext ? SKELETON_CONTEXT : (context ?? SKELETON_CONTEXT)
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header
-        currentPR={MOCK_CURRENT_PR_INDEX + currentIndex}
-        totalPRs={MOCK_TOTAL_PRS}
+        currentPR={currentIndex + 1}
+        totalPRs={prList.length}
         streak={streak}
-        defaultRepo={MOCK_REPO}
+        defaultRepo={repoInput}
         onToggleHints={() => setHintsOpen(true)}
+        onRepoSubmit={loadRepo}
+        isLoading={isLoading}
       />
 
       <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-8 px-4 py-6 pb-24 lg:flex-row lg:px-8 lg:pb-20">
         {/* Left column - Card stack or Session Summary */}
         <div className="w-full lg:w-[60%]">
-          {currentIndex >= MOCK_PRS.length ? (
+          {isIngesting ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-3">
+              <div className="font-mono text-sm text-muted-foreground animate-pulse">
+                Fetching PRs from GitHub…
+              </div>
+            </div>
+          ) : isLoadingPRs ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-3">
+              <div className="font-mono text-sm text-muted-foreground animate-pulse">Loading…</div>
+            </div>
+          ) : prList.length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center gap-3">
+              <div className="font-mono text-sm text-muted-foreground">No open PRs found.</div>
+            </div>
+          ) : currentIndex >= prList.length ? (
             <SessionSummary
               stats={{
                 approved: stats.approved,
@@ -187,12 +317,12 @@ Key differences:
                 totalReviewed: stats.approved + stats.changesRequested + stats.skipped,
               }}
               streak={streak}
-              repoName={MOCK_REPO}
-              onLoadRepo={handleLoadRepo}
+              repoName={repoInput}
+              onLoadRepo={loadRepo}
             />
           ) : (
             <>
-              <CardStack prs={MOCK_PRS} currentIndex={currentIndex} onSwipe={handleSwipe} />
+              <CardStack prs={prList} currentIndex={currentIndex} onSwipe={handleSwipe} />
 
               {/* Action buttons - visible on all screens */}
               <ActionButtons onAction={handleSwipe} />
@@ -215,13 +345,23 @@ Key differences:
         {/* Right column - AI Context Panel (desktop only) */}
         <aside className="sticky top-20 hidden h-[calc(100vh-120px)] w-[40%] overflow-hidden lg:block">
           <div className="h-full rounded-xl border border-border bg-secondary/50 p-4">
-            <AIContextPanel context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} onDeeperAction={handleDeeperAction} />
+            <AIContextPanel
+              context={displayContext}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              onDeeperAction={handleDeeperAction}
+            />
           </div>
         </aside>
       </main>
 
       {/* Mobile context sheet */}
-      <MobileContextSheet context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} onDeeperAction={handleDeeperAction} />
+      <MobileContextSheet
+        context={displayContext}
+        messages={messages}
+        onSendMessage={handleSendMessage}
+        onDeeperAction={handleDeeperAction}
+      />
 
       <BottomStrip stats={stats} />
 
