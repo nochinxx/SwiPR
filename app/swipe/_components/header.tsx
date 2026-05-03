@@ -8,9 +8,10 @@ interface HeaderProps {
   totalPRs: number
   streak: number
   defaultRepo?: string
+  onToggleHints?: () => void
 }
 
-export function Header({ currentPR, totalPRs, streak, defaultRepo = '' }: HeaderProps) {
+export function Header({ currentPR, totalPRs, streak, defaultRepo = '', onToggleHints }: HeaderProps) {
   const [repo, setRepo] = useState(defaultRepo)
 
   return (
@@ -37,8 +38,8 @@ export function Header({ currentPR, totalPRs, streak, defaultRepo = '' }: Header
         </div>
       </div>
 
-      {/* Right: Progress + Streak + Theme */}
-      <div className="flex items-center gap-4">
+      {/* Right: Progress + Streak + Hints + Theme */}
+      <div className="flex items-center gap-3">
         <span className="font-mono text-sm text-muted-foreground">
           PR {currentPR} of {totalPRs}
         </span>
@@ -47,6 +48,13 @@ export function Header({ currentPR, totalPRs, streak, defaultRepo = '' }: Header
             {streak} in a row
           </span>
         )}
+        <button
+          onClick={onToggleHints}
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-border font-mono text-xs text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+          aria-label="Keyboard shortcuts"
+        >
+          ?
+        </button>
         <ThemeToggle />
       </div>
     </header>

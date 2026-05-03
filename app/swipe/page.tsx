@@ -18,7 +18,7 @@ import { CardStack, ActionButtons } from './_components/card-stack'
 import { AIContextPanel } from './_components/ai-context-panel'
 import { BottomStrip } from './_components/bottom-strip'
 import { MobileContextSheet } from './_components/mobile-context-sheet'
-import { ThemeToggle } from '@/components/theme-toggle'
+import { KeyboardHints } from './_components/keyboard-hints'
 
 export default function SwipePage() {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -26,6 +26,7 @@ export default function SwipePage() {
   const [stats, setStats] = useState<SessionStats>(MOCK_SESSION_STATS)
   const [messages, setMessages] = useState<ChatMessage[]>(MOCK_CHAT_MESSAGES)
   const [lastAction, setLastAction] = useState<SwipeAction | null>(null)
+  const [hintsOpen, setHintsOpen] = useState(false)
 
   const handleSwipe = useCallback((action: SwipeAction) => {
     console.log('[v0] Action:', action)
@@ -122,8 +123,16 @@ Key differences:
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      // Ignore if typing in input (except for ? which should work everywhere)
+      const isInputFocused = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
+
+      if (e.key === '?') {
+        e.preventDefault()
+        setHintsOpen((prev) => !prev)
+        return
+      }
+
+      if (isInputFocused) {
         return
       }
 
@@ -152,6 +161,7 @@ Key differences:
         totalPRs={MOCK_TOTAL_PRS}
         streak={streak}
         defaultRepo={MOCK_REPO}
+        onToggleHints={() => setHintsOpen(true)}
       />
 
       <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-8 px-4 py-6 pb-24 lg:flex-row lg:px-8 lg:pb-20">
@@ -187,6 +197,8 @@ Key differences:
       <MobileContextSheet context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} onDeeperAction={handleDeeperAction} />
 
       <BottomStrip stats={stats} />
+
+      <KeyboardHints open={hintsOpen} onClose={() => setHintsOpen(false)} />
     </div>
   )
 }
