@@ -46,18 +46,37 @@ export async function GET(req: NextRequest) {
         .where(and(eq(contributors.repoId, repoRow.id), eq(contributors.handle, pr.authorHandle)))
         .limit(1);
 
-      // Get first changed file with a patch for diff preview
-      const [firstFile] = await db
-        .select()
-        .from(prFiles)
-        .where(and(eq(prFiles.prId, pr.id), eq(prFiles.status, "modified")))
-        .limit(1);
+      // Pick the best file to show as diff preview:
+      // prefer source files with a non-empty patch over config/docs files.
+      const allFiles = await db.select().from(prFiles).where(eq(prFiles.prId, pr.id));
 
-      const diffFile = firstFile ?? (await db.select().from(prFiles).where(eq(prFiles.prId, pr.id)).limit(1))[0];
+      const SOURCE_RE = /\.(ts|tsx|js|jsx|py|go|rs|rb|java|swift|kt|c|cpp|cs)$/;
+      const withPatch = allFiles.filter((f) => f.patch && f.patch.length > 10);
+      const diffFile =
+        withPatch.find((f) => SOURCE_RE.test(f.filename)) ??
+        withPatch[0] ??
+        allFiles[0];
 
-      const diff = diffFile?.patch
-        ? parsePatch(diffFile.patch, diffFile.filename)
-        : { filePath: "(no diff)", lines: [] };
+      let diff: ReturnType<typeof parsePatch>;
+      if (diffFile?.patch) {
+        diff = parsePatch(diffFile.patch, diffFile.filename, 10);
+      } else {
+        const count = allFiles.length;
+        const fileWord = count === 1 ? "file" : "files";
+        const filePath = count > 0 ? `${count} ${fileWord} changed` : "(no diff)";
+        diff = {
+          filePath,
+          lines: allFiles.slice(0, 6).map((f) => {
+            let prefix = " ";
+            if (f.status === "added") prefix = "+";
+            else if (f.status === "removed") prefix = "-";
+            return {
+              type: "context" as const,
+              content: `${prefix} ${f.filename}  +${f.additions} -${f.deletions}`,
+            };
+          }),
+        };
+      }
 
       return {
         id: pr.id,
@@ -78,6 +97,7 @@ export async function GET(req: NextRequest) {
         additions: pr.additions,
         deletions: pr.deletions,
         diff,
+        htmlUrl: pr.htmlUrl,
       };
     })
   );

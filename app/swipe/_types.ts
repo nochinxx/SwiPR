@@ -15,6 +15,7 @@ export interface PullRequest {
   additions: number
   deletions: number
   diff: DiffPreview
+  htmlUrl?: string
 }
 
 export interface DiffPreview {
