@@ -41,8 +41,8 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
     }
   }
 
-  const stateColor = pr.state === 'open' ? 'bg-[#16A34A]' : pr.state === 'merged' ? 'bg-purple-500' : 'bg-red-500'
-  const ciColor = pr.ciStatus === 'passing' ? 'bg-[#16A34A]' : pr.ciStatus === 'failing' ? 'bg-[#DC2626]' : 'bg-amber-500'
+  const stateColor = pr.state === 'open' ? 'bg-[#22C55E]' : pr.state === 'merged' ? 'bg-purple-500' : 'bg-red-500'
+  const ciColor = pr.ciStatus === 'passing' ? 'bg-[#22C55E]' : pr.ciStatus === 'failing' ? 'bg-[#DC2626]' : 'bg-amber-500'
 
   return (
     <motion.div
@@ -56,17 +56,17 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
       initial={false}
     >
       <motion.div
-        className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200 bg-white"
+        className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-card"
         style={{ x, y, rotate }}
         drag={isActive}
         dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
         dragElastic={0.9}
         onDragEnd={handleDragEnd}
-        whileDrag={{ boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)' }}
+        whileDrag={{ boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)' }}
       >
         {/* Green overlay for approve */}
         <motion.div
-          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-l from-[#16A34A] to-transparent"
+          className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-l from-[#22C55E] to-transparent"
           style={{ opacity: greenOverlayOpacity }}
         />
         {/* Red overlay for changes */}
@@ -78,11 +78,11 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
         <div className="flex h-full flex-col p-6">
           {/* Top row: PR number, state, date, CI */}
           <div className="flex items-center gap-3 font-mono text-sm">
-            <span className="text-[#0A0A0A]">#{pr.number}</span>
+            <span className="text-foreground">#{pr.number}</span>
             <span className={`rounded px-2 py-0.5 text-xs font-medium uppercase text-white ${stateColor}`}>
               {pr.state}
             </span>
-            <span className="text-slate-500">{pr.openedAt}</span>
+            <span className="text-muted-foreground">{pr.openedAt}</span>
             <span className={`rounded px-2 py-0.5 text-xs font-medium text-white ${ciColor}`}>
               CI {pr.ciStatus}
             </span>
@@ -96,36 +96,36 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
               className="h-6 w-6 rounded-full"
               crossOrigin="anonymous"
             />
-            <span className="font-mono text-sm text-slate-600">@{pr.author.handle}</span>
+            <span className="font-mono text-sm text-muted-foreground">@{pr.author.handle}</span>
           </div>
 
           {/* Title */}
-          <h2 className="mt-3 line-clamp-2 text-[22px] font-medium leading-[1.3] text-[#0A0A0A]">
+          <h2 className="mt-3 line-clamp-2 text-[22px] font-medium leading-[1.3] text-card-foreground">
             {pr.title}
           </h2>
 
           {/* Body excerpt */}
-          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-600">
+          <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
             {pr.body}
           </p>
 
           {/* Diff preview */}
           <div className="mt-4 flex-1 overflow-hidden">
-            <div className="rounded-lg bg-slate-50 p-4">
-              <div className="mb-2 font-mono text-xs text-slate-500">{pr.diff.filePath}</div>
+            <div className="rounded-lg bg-secondary p-4">
+              <div className="mb-2 font-mono text-xs text-muted-foreground">{pr.diff.filePath}</div>
               <div className="space-y-0.5 font-mono text-xs">
                 {pr.diff.lines.map((line, i) => (
                   <div
                     key={i}
                     className={`rounded px-2 py-0.5 ${
                       line.type === 'addition'
-                        ? 'border-l-2 border-[#16A34A] bg-green-50 text-green-800'
+                        ? 'border-l-2 border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]'
                         : line.type === 'deletion'
-                          ? 'border-l-2 border-[#DC2626] bg-red-50 text-red-800'
-                          : 'text-slate-600'
+                          ? 'border-l-2 border-[#DC2626] bg-[#DC2626]/10 text-[#DC2626]'
+                          : 'text-muted-foreground'
                     }`}
                   >
-                    <span className="mr-2 select-none text-slate-400">
+                    <span className="mr-2 select-none text-muted-foreground">
                       {line.type === 'addition' ? '+' : line.type === 'deletion' ? '-' : ' '}
                     </span>
                     {line.content || ' '}
@@ -136,16 +136,16 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
           </div>
 
           {/* Footer */}
-          <div className="mt-4 flex items-center gap-4 border-t border-slate-100 pt-4 font-mono text-xs text-slate-500">
+          <div className="mt-4 flex items-center gap-4 border-t border-border pt-4 font-mono text-xs text-muted-foreground">
             <span>{pr.filesChanged} files changed</span>
-            <span className="text-[#16A34A]">+{pr.additions}</span>
+            <span className="text-[#22C55E]">+{pr.additions}</span>
             <span className="text-[#DC2626]">-{pr.deletions}</span>
-            <div className="h-3 w-px bg-slate-200" />
+            <div className="h-3 w-px bg-border" />
             <a
               href={`https://github.com/resend/resend-node/pull/${pr.number}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-slate-700"
+              className="flex items-center gap-1 hover:text-foreground transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
               View on GitHub

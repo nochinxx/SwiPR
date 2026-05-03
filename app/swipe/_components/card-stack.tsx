@@ -50,31 +50,31 @@ export function ActionButtons({ onAction }: ActionButtonsProps) {
     <div className="mt-6 grid grid-cols-3 gap-3">
       <button
         onClick={() => onAction('changes')}
-        className="group flex h-12 items-center justify-center gap-2 rounded-lg border-2 border-[#DC2626] bg-white font-mono text-sm font-medium text-[#DC2626] transition-colors hover:bg-red-50"
+        className="group flex h-12 items-center justify-center gap-2 rounded-lg border-2 border-[#DC2626] bg-card font-mono text-sm font-medium text-[#DC2626] transition-colors hover:bg-[#DC2626]/10"
       >
-        <span>✗</span>
+        <span>x</span>
         <span>Request changes</span>
-        <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="ml-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
           F
         </span>
       </button>
       <button
         onClick={() => onAction('skip')}
-        className="group flex h-12 items-center justify-center gap-2 rounded-lg border-2 border-slate-300 bg-white font-mono text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
+        className="group flex h-12 items-center justify-center gap-2 rounded-lg border-2 border-border bg-card font-mono text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary"
       >
         <span>↓</span>
         <span>Skip</span>
-        <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="ml-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
           space
         </span>
       </button>
       <button
         onClick={() => onAction('approve')}
-        className="group flex h-12 items-center justify-center gap-2 rounded-lg border-2 border-[#16A34A] bg-white font-mono text-sm font-medium text-[#16A34A] transition-colors hover:bg-green-50"
+        className="group flex h-12 items-center justify-center gap-2 rounded-lg border-2 border-[#22C55E] bg-card font-mono text-sm font-medium text-[#22C55E] transition-colors hover:bg-[#22C55E]/10"
       >
         <span>✓</span>
         <span>Approve</span>
-        <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
+        <span className="ml-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
           J
         </span>
       </button>
