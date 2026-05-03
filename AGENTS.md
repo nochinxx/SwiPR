@@ -28,10 +28,10 @@ open PRs as a card stack.
 
 ## The 90-second pitch (LOCK THIS)
 
-> Resend has 60+ contributors and 200+ open PRs across their repos. They've
-> publicly said review is the bottleneck — AI generates PRs faster than
-> humans can verify them, and trusting tests alone is slow.
+> Zeno Rocha (CEO of Resend) on X, Feb 21: *"the cost of opening a PR has dropped to zero. now, we have tons of draft PRs waiting for a finite (and ultra precious) resource: attention. turns out the bottleneck is no longer creation. it's reviewing."*
 >
+> Then May 1: *"before our main repo had an average of ~20–40 open PRs on any given day. now, we average ~130–200 open PRs."*
+
 > SwiPR is a swipe-to-review interface for open source. Paste a repo URL,
 > see the open PRs as a card stack, swipe right to approve, left for changes,
 > down to skip. The right rail surfaces context — risk score, what the PR
@@ -442,7 +442,7 @@ reads memory file → agent reads code → agent picks up. So:
 | Decision | Why |
 | --- | --- |
 | Pivot from Trajectory to SwiPR | Vercel community judges weight cloneable dev tools. PR review is a real, painful, named bottleneck (Resend has said this publicly). |
-| Resend as the demo persona | Open source, well-known in Vercel community, has named the problem. Built-in pitch hook. |
+| Resend as the demo persona | Open source, well-known in Vercel community, has named the problem publicly via Zeno Rocha (CEO) on X — Feb 21 + May 1, 2026 tweets. Direct quote = built-in credibility. |
 | Same stack as Trajectory | Patterns are proven (Drizzle + Neon + pgvector + mcp-handler + AI Gateway all worked). Faster to ship. |
 | Read-only GitHub access (no OAuth) | 60/hr is enough for demo with pre-caching. OAuth is hours of friction with no upside for the pitch. |
 | Don't actually post reviews back to GitHub | Show the draft. Keeps demo safe and OAuth-free. |
