@@ -18,6 +18,7 @@ import { CardStack, ActionButtons } from './_components/card-stack'
 import { AIContextPanel } from './_components/ai-context-panel'
 import { BottomStrip } from './_components/bottom-strip'
 import { MobileContextSheet } from './_components/mobile-context-sheet'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function SwipePage() {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -97,7 +98,7 @@ export default function SwipePage() {
   }, [handleSwipe])
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="flex min-h-screen flex-col bg-background">
       <Header
         currentPR={MOCK_CURRENT_PR_INDEX + currentIndex}
         totalPRs={MOCK_TOTAL_PRS}
@@ -119,16 +120,16 @@ export default function SwipePage() {
               key={streak}
               initial={{ scale: 1.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="mt-4 text-center font-mono text-sm text-slate-500"
+              className="mt-4 text-center font-mono text-sm text-muted-foreground"
             >
-              {streak >= 2 && `🔥 ${streak} in a row!`}
+              {streak >= 2 && `${streak} in a row!`}
             </motion.div>
           )}
         </div>
 
         {/* Right column - AI Context Panel (desktop only) */}
         <aside className="sticky top-20 hidden h-[calc(100vh-120px)] w-[40%] overflow-hidden lg:block">
-          <div className="h-full rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+          <div className="h-full rounded-xl border border-border bg-secondary/50 p-4">
             <AIContextPanel context={MOCK_AI_CONTEXT} messages={messages} onSendMessage={handleSendMessage} />
           </div>
         </aside>

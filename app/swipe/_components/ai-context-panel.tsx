@@ -28,7 +28,7 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
   }
 
   const getRiskColor = (score: number) => {
-    if (score <= 30) return 'text-[#16A34A]'
+    if (score <= 30) return 'text-[#22C55E]'
     if (score <= 60) return 'text-amber-500'
     return 'text-[#DC2626]'
   }
@@ -37,23 +37,23 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
     <div className="flex h-full flex-col">
       {/* Context section */}
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Context</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
 
         {/* Risk card */}
         <motion.div
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="rounded-xl border border-slate-200 bg-white p-4"
+          className="rounded-xl border border-border bg-card p-4"
         >
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Risk</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Risk</div>
           <div className="mt-2 flex items-baseline gap-1">
             <span className={`font-mono text-5xl font-bold tabular-nums ${getRiskColor(context.risk.score)}`}>
               {context.risk.score}
             </span>
-            <span className="font-mono text-sm text-slate-400">/ 100</span>
+            <span className="font-mono text-sm text-muted-foreground">/ 100</span>
           </div>
-          <p className="mt-2 text-sm text-slate-700">{context.risk.rationale}</p>
+          <p className="mt-2 text-sm text-card-foreground">{context.risk.rationale}</p>
         </motion.div>
 
         {/* Summary card */}
@@ -61,14 +61,14 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0.05 }}
-          className="rounded-xl border border-slate-200 bg-white p-4"
+          className="rounded-xl border border-border bg-card p-4"
         >
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">What This Does</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">What This Does</div>
           <ol className="mt-3 space-y-2">
             {context.summary.map((item, i) => (
               <li key={i} className="flex gap-3 text-sm">
-                <span className="font-mono text-slate-400">{i + 1}</span>
-                <span className="text-slate-700">{item}</span>
+                <span className="font-mono text-muted-foreground">{i + 1}</span>
+                <span className="text-card-foreground">{item}</span>
               </li>
             ))}
           </ol>
@@ -79,9 +79,9 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0.1 }}
-          className="rounded-xl border border-slate-200 bg-white p-4"
+          className="rounded-xl border border-border bg-card p-4"
         >
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Similar PRs</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Similar PRs</div>
           <div className="mt-3 space-y-1">
             {context.similarPRs.map((pr) => (
               <SimilarPRRow key={pr.number} pr={pr} />
@@ -94,9 +94,9 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0.15 }}
-          className="rounded-xl border border-slate-200 bg-white p-4"
+          className="rounded-xl border border-border bg-card p-4"
         >
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Contributor</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contributor</div>
           <div className="mt-3 flex items-center gap-3">
             <img
               src={context.contributor.avatarUrl}
@@ -105,19 +105,19 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
               crossOrigin="anonymous"
             />
             <div>
-              <div className="font-mono text-sm text-[#0A0A0A]">@{context.contributor.handle}</div>
-              <div className="mt-0.5 text-xs text-slate-500">
+              <div className="font-mono text-sm text-foreground">@{context.contributor.handle}</div>
+              <div className="mt-0.5 text-xs text-muted-foreground">
                 {context.contributor.priorPRs} prior PRs · {context.contributor.mergeRate}% merge rate
               </div>
-              <div className="text-xs text-slate-400">first PR {context.contributor.firstPR}</div>
+              <div className="text-xs text-muted-foreground/70">first PR {context.contributor.firstPR}</div>
             </div>
           </div>
         </motion.div>
 
         {/* Deeper section */}
-        <div className="border-t border-slate-200 pt-4">
+        <div className="border-t border-border pt-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[#FF0080]">Deeper</h3>
-          <p className="mt-1 text-xs text-slate-500">Want more? Ask the assistant or tap a shortcut.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Want more? Ask the assistant or tap a shortcut.</p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {['Why is this risky?', 'Show me callers', 'What tests cover this?', 'Compare with main'].map(
@@ -125,7 +125,7 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
                 <button
                   key={action}
                   onClick={() => handleQuickAction(action)}
-                  className="rounded-full border border-[#FF0080] bg-white px-3 py-1.5 text-xs font-medium text-[#FF0080] transition-colors hover:bg-[#FF0080]/10"
+                  className="rounded-full border border-[#FF0080] bg-card px-3 py-1.5 text-xs font-medium text-[#FF0080] transition-colors hover:bg-[#FF0080]/10"
                 >
                   {action}
                 </button>
@@ -136,20 +136,20 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
 
         {/* Chat thread */}
         {messages.length > 0 && (
-          <div className="space-y-3 border-t border-slate-200 pt-4">
+          <div className="space-y-3 border-t border-border pt-4">
             {messages.map((message) => (
               <div
                 key={message.id}
                 className={`rounded-lg p-3 ${
                   message.role === 'assistant'
-                    ? 'bg-slate-50 text-left'
-                    : 'ml-auto max-w-[85%] bg-white text-right'
+                    ? 'bg-secondary text-left'
+                    : 'ml-auto max-w-[85%] bg-card border border-border text-right'
                 }`}
               >
                 {message.toolCall && (
-                  <div className="mb-1 font-mono text-xs text-slate-400">→ called {message.toolCall}</div>
+                  <div className="mb-1 font-mono text-xs text-muted-foreground">→ called {message.toolCall}</div>
                 )}
-                <p className="text-sm text-[#0A0A0A]">{message.content}</p>
+                <p className="text-sm text-foreground">{message.content}</p>
               </div>
             ))}
           </div>
@@ -157,16 +157,16 @@ export function AIContextPanel({ context, messages, onSendMessage }: AIContextPa
       </div>
 
       {/* Chat input */}
-      <form onSubmit={handleSubmit} className="border-t border-slate-200 pt-4">
+      <form onSubmit={handleSubmit} className="border-t border-border pt-4">
         <div className="relative">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask anything about this PR..."
-            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 pr-12 font-mono text-sm text-[#0A0A0A] placeholder:text-slate-400 focus:border-[#FF0080] focus:outline-none focus:ring-1 focus:ring-[#FF0080]"
+            className="w-full rounded-lg border border-border bg-card px-4 py-3 pr-12 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-[#FF0080] focus:outline-none focus:ring-1 focus:ring-[#FF0080]"
           />
-          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-mono text-xs text-slate-400">
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 font-mono text-xs text-muted-foreground">
             ↵
           </span>
         </div>
@@ -187,10 +187,10 @@ function SimilarPRRow({ pr }: { pr: SimilarPR }) {
   }
 
   return (
-    <button className="group flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-50">
+    <button className="group flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-secondary">
       <div className="transition-transform group-hover:translate-x-0.5">{getStateIcon()}</div>
-      <span className="flex-1 truncate text-sm text-slate-700">{pr.title}</span>
-      <span className="font-mono text-xs text-slate-400">{pr.date}</span>
+      <span className="flex-1 truncate text-sm text-card-foreground">{pr.title}</span>
+      <span className="font-mono text-xs text-muted-foreground">{pr.date}</span>
       <div className="absolute left-0 h-full w-0.5 rounded bg-[#FF0080] opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
   )
