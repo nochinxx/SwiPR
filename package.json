@@ -8,10 +8,12 @@
     "start": "next start",
     "lint": "eslint .",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "precache": "tsx scripts/precache.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.58",
+    "@ai-sdk/react": "^3.0.176",
     "@hookform/resolvers": "^3.9.1",
     "@neondatabase/serverless": "^1.1.0",
     "@octokit/rest": "^22.0.1",
