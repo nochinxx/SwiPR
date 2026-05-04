@@ -47,7 +47,10 @@ async function ingest(owner: string, name: string) {
 
   const res = await fetch(`${BASE_URL}/api/ingest`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(process.env.INGEST_SECRET ? { "x-ingest-secret": process.env.INGEST_SECRET } : {}),
+    },
     body: JSON.stringify({ owner, name }),
   });
 

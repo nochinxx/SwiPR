@@ -15,6 +15,13 @@ import { fetchOpenPRs, fetchPRFiles, fetchRepoPRHistory } from "@/lib/github";
 import { embedText, embedBatch } from "@/lib/embed";
 
 export async function POST(req: NextRequest) {
+  // Require a secret header when INGEST_SECRET is set (production).
+  // Locally, leave INGEST_SECRET unset to allow open access.
+  const secret = process.env.INGEST_SECRET;
+  if (secret && req.headers.get("x-ingest-secret") !== secret) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await req.json();
   const owner = body?.owner?.toString().trim();
   const name = body?.name?.toString().trim();

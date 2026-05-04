@@ -145,15 +145,17 @@ export function DecisionHistory({ decisions, action, onClose }: DecisionHistoryP
                 </span>
                 
                 {/* GitHub link */}
-                <a
-                  href={`https://github.com/${decision.pr.repoId?.replace('-', '/')}/pull/${decision.pr.number}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground transition-colors hover:text-foreground"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                {decision.pr.htmlUrl && (
+                  <a
+                    href={decision.pr.htmlUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </div>
             ))
           )}
