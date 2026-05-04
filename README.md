@@ -7,10 +7,16 @@ A swipe-to-review interface for open-source GitHub pull requests, with AI-powere
 Zeno Rocha (CEO of [Resend](https://resend.com)) put it sharply on X:
 
 > *"the cost of opening a PR has dropped to zero. now, we have tons of draft PRs waiting for a finite (and ultra precious) resource: attention. turns out the bottleneck is no longer creation. it's reviewing."*
+> — [@zenorocha](https://x.com/zenorocha/status/2025220302100193491), Feb 2026
 
-Resend's main repo went from 20–40 open PRs per day to 130–200 in a few months. AI ships PRs. Humans don't ship reviews at the same rate. Tests catch a lot, but not intent, architecture, or subtle regressions. The bottleneck has shifted from *writing* code to *reading* code.
+A few months later:
 
-SwiPR is built for the moment when you have 30 minutes between meetings and 47 PRs in your queue. Triage fast. Stay informed. Don't rubber-stamp.
+> *"before our main repo had an average of ~20–40 open PRs on any given day. now, we average ~130–200 open PRs."*
+> — [@zenorocha](https://x.com/zenorocha/status/2050227333169377369), May 2026
+
+PR review is a context problem. Whether a human maintainer is triaging or an agent is deciding whether to merge, the question is the same: *is this safe to ship?* Answering it well requires more than reading a diff — it requires knowing how risky the change is structurally, whether this pattern has caused problems before, who the contributor is and what their track record looks like, and what tests actually cover the changed lines.
+
+SwiPR is context infrastructure for the merge decision. It exposes that context as an MCP server that works for humans in a swipe UI and for agents in Claude Desktop, Cursor, or any MCP-compatible client. Same signals, same depth, whatever surface you're working from.
 
 ## Live demo
 
