@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useChat } from '@ai-sdk/react'
-import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext } from './_types'
+import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext, DecisionRecord } from './_types'
 import { Header } from './_components/header'
 import { CardStack, ActionButtons } from './_components/card-stack'
 import { AIContextPanel } from './_components/ai-context-panel'
@@ -11,6 +11,7 @@ import { BottomStrip } from './_components/bottom-strip'
 import { MobileContextSheet } from './_components/mobile-context-sheet'
 import { KeyboardHints } from './_components/keyboard-hints'
 import { SessionSummary } from './_components/session-summary'
+import { DecisionHistory } from './_components/decision-history'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
@@ -131,6 +132,8 @@ export default function SwipePage() {
   const [stats, setStats] = useState<SessionStats>({ approved: 0, changesRequested: 0, skipped: 0 })
   const [lastAction, setLastAction] = useState<SwipeAction | null>(null)
   const [hintsOpen, setHintsOpen] = useState(false)
+  const [decisionHistory, setDecisionHistory] = useState<DecisionRecord[]>([])
+  const [historyFilter, setHistoryFilter] = useState<SwipeAction | null>(null)
 
   // useChat for AI panel
   const { messages: chatMessages, append, isLoading: isChatLoading } = useChat({
@@ -230,6 +233,8 @@ export default function SwipePage() {
   const handleSwipe = useCallback(
     async (action: SwipeAction) => {
       const pr = prList[currentIndex]
+      if (!pr) return
+      
       setLastAction(action)
 
       // Update stats
@@ -239,6 +244,16 @@ export default function SwipePage() {
         changesRequested: action === 'changes' ? prev.changesRequested + 1 : prev.changesRequested,
         skipped: action === 'skip' ? prev.skipped + 1 : prev.skipped,
       }))
+
+      // Add to decision history
+      setDecisionHistory((prev) => [
+        {
+          pr,
+          action,
+          decidedAt: new Date().toISOString(),
+        },
+        ...prev,
+      ])
 
       // Update streak
       setStreak((prev) => (action !== 'skip' ? prev + 1 : 0))
@@ -442,9 +457,19 @@ export default function SwipePage() {
         onDeeperAction={handleDeeperAction}
       />
 
-      <BottomStrip stats={stats} />
+      <BottomStrip stats={stats} onFilterClick={(action) => setHistoryFilter(action)} />
 
       <KeyboardHints open={hintsOpen} onClose={() => setHintsOpen(false)} />
+
+      <AnimatePresence>
+        {historyFilter && (
+          <DecisionHistory
+            decisions={decisionHistory.filter((d) => d.action === historyFilter)}
+            action={historyFilter}
+            onClose={() => setHistoryFilter(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

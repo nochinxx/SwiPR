@@ -51,7 +51,7 @@ export default function LandingPage() {
               <ArrowRight className="h-5 w-5" />
             </Link>
             <a
-              href="https://github.com"
+              href="https://github.com/nochinxx/SwiPR"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 rounded-full border border-border bg-secondary px-8 py-3 text-base font-medium text-foreground transition-colors hover:bg-secondary/80"
