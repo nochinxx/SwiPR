@@ -200,13 +200,10 @@ export default function SwipePage() {
 
       // Record decision in DB (fire and forget)
       if (pr?.id && sessionId) {
-        fetch('/api/mcp', {
+        fetch('/api/decide', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            method: 'tools/call',
-            params: { name: 'record_decision', arguments: { session_id: sessionId, pr_id: pr.id, action } },
-          }),
+          body: JSON.stringify({ sessionId, prId: pr.id, action }),
         }).catch(console.error)
       }
     },
@@ -227,61 +224,16 @@ export default function SwipePage() {
       const pr = prList[currentIndex]
       if (!pr?.id || !repoId) return 'No active PR'
 
-      const toolCall = {
-        risk_verbose: () =>
-          fetch('/api/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              method: 'tools/call',
-              params: { name: 'risk_score', arguments: { pr_id: pr.id, verbose: true } },
-            }),
-          }),
-        callers: () =>
-          fetch('/api/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              method: 'tools/call',
-              params: {
-                name: 'find_callers',
-                arguments: { repo_id: repoId, function_name: pr.title.match(/`(\w+)`/)?.[1] ?? 'main' },
-              },
-            }),
-          }),
-        tests: () =>
-          fetch('/api/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              method: 'tools/call',
-              params: { name: 'find_related_tests', arguments: { pr_id: pr.id } },
-            }),
-          }),
-        compare: () =>
-          fetch('/api/mcp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              method: 'tools/call',
-              params: { name: 'compare_with', arguments: { repo_id: repoId, pr_id: pr.id, ref: 'main' } },
-            }),
-          }),
-      }[action]
-
       try {
-        const res = await toolCall()
+        const res = await fetch('/api/deeper', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, prId: pr.id, repoId }),
+        })
         const data = await res.json()
-        const text = data?.content?.[0]?.text
-        if (!text) return 'No result'
-        try {
-          const parsed = JSON.parse(text)
-          return JSON.stringify(parsed, null, 2)
-        } catch {
-          return text
-        }
+        return JSON.stringify(data, null, 2)
       } catch (error) {
-        console.error('[v0] Deeper action failed:', error)
+        console.error('[swipe] Deeper action failed:', error)
         return 'Failed to fetch result'
       }
     },
