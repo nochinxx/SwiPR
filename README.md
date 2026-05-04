@@ -22,6 +22,9 @@ SwiPR is context infrastructure for the merge decision. It exposes that context 
 
 **[→ Try SwiPR](https://v0-swipr-build.vercel.app)**
 
+> **How data loading works:**  
+> SwiPR ingests PRs on first load (fetch → store → embed). For the live demo, a few repos are pre-cached for speed. When self-hosting, you can pre-cache repos via `pnpm precache` or let them ingest on demand.
+
 Load any public GitHub repo to start swiping. A good one to try:
 
 ```
@@ -35,7 +38,7 @@ vercel/next.js
 <img width="1646" height="949" alt="Screenshot 2026-05-03 at 11 21 01 PM" src="https://github.com/user-attachments/assets/27e194ca-a6dc-4e3a-aead-ea24ca144a9d" />
 
 
-1. Paste any public GitHub repo URL — SwiPR fetches the open PRs and stores them
+1. Paste any public GitHub repo URL — SwiPR fetches and **ingests** open PRs (first load may take a few seconds)
 2. Swipe right to approve, left to request changes, down to skip (or use J / F / Space)
 3. The right panel surfaces context: risk score, what the PR does, similar past changes, contributor history
 4. Ask deeper questions in the chat — the AI has access to the full PR diff and codebase context
@@ -125,9 +128,9 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### 6. Pre-cache repos (optional)
+### 6. Pre-cache repos (recommended)
 
-Pre-load PR data so the first load is instant:
+Pre-load PR data so the first review experience is instant and similarity search is meaningful:
 
 ```bash
 pnpm precache
