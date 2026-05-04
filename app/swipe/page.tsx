@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useChat } from '@ai-sdk/react'
-import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext } from './_types'
+import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext, DecisionRecord } from './_types'
 import { Header } from './_components/header'
 import { CardStack, ActionButtons } from './_components/card-stack'
 import { AIContextPanel } from './_components/ai-context-panel'
@@ -11,6 +11,7 @@ import { BottomStrip } from './_components/bottom-strip'
 import { MobileContextSheet } from './_components/mobile-context-sheet'
 import { KeyboardHints } from './_components/keyboard-hints'
 import { SessionSummary } from './_components/session-summary'
+import { DecisionHistory } from './_components/decision-history'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
@@ -20,6 +21,93 @@ function parseRepoInput(input: string): { owner: string; repo: string } | null {
   const parts = input.trim().split('/')
   if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], repo: parts[1] }
   return null
+}
+
+// Ingesting/Loading state component
+function IngestingState({ isIngesting, isLoadingPRs, repo }: { isIngesting: boolean; isLoadingPRs: boolean; repo: string }) {
+  const [dotIndex, setDotIndex] = useState(0)
+  const [progress, setProgress] = useState(0)
+
+  // Cycling dots animation
+  useEffect(() => {
+    if (!isIngesting) return
+    const interval = setInterval(() => {
+      setDotIndex((prev) => (prev + 1) % 4)
+    }, 600)
+    return () => clearInterval(interval)
+  }, [isIngesting])
+
+  // Fake progress bar animation (0 -> 70% over ~20s)
+  useEffect(() => {
+    if (!isIngesting) {
+      setProgress(0)
+      return
+    }
+    const startTime = Date.now()
+    const duration = 20000 // 20 seconds to reach 70%
+    const targetProgress = 70
+
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const newProgress = Math.min((elapsed / duration) * targetProgress, targetProgress)
+      setProgress(newProgress)
+      if (elapsed < duration && isIngesting) {
+        requestAnimationFrame(animate)
+      }
+    }
+    requestAnimationFrame(animate)
+  }, [isIngesting])
+
+  const dots = ['', '.', '..', '...'][dotIndex]
+
+  // Loading from DB (fast state)
+  if (!isIngesting && isLoadingPRs) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          className="font-mono text-sm text-muted-foreground animate-pulse"
+        >
+          Loading…
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Ingesting from GitHub
+  return (
+    <div className="flex h-64 flex-col items-center justify-center">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        className="flex flex-col items-center gap-3"
+      >
+        {/* Repo name */}
+        <div className="font-mono text-lg font-medium text-foreground">{repo}</div>
+
+        {/* Animated dots */}
+        <div className="h-4 font-mono text-sm text-muted-foreground">
+          <span className="inline-block w-6">{dots}</span>
+        </div>
+
+        {/* Status line */}
+        <div className="font-mono text-sm text-muted-foreground">Fetching PRs from GitHub…</div>
+
+        {/* Progress bar */}
+        <div className="mt-2 h-0.5 w-48 overflow-hidden rounded-full bg-secondary">
+          <motion.div
+            className="h-full rounded-full bg-[#22C55E]"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+          />
+        </div>
+      </motion.div>
+    </div>
+  )
 }
 
 const SKELETON_CONTEXT: AIContext = {
@@ -52,6 +140,8 @@ export default function SwipePage() {
   const [stats, setStats] = useState<SessionStats>({ approved: 0, changesRequested: 0, skipped: 0 })
   const [lastAction, setLastAction] = useState<SwipeAction | null>(null)
   const [hintsOpen, setHintsOpen] = useState(false)
+  const [decisionHistory, setDecisionHistory] = useState<DecisionRecord[]>([])
+  const [historyFilter, setHistoryFilter] = useState<SwipeAction | null>(null)
 
   // useChat for AI panel
   const { messages: chatMessages, append, isLoading: isChatLoading } = useChat({
@@ -182,6 +272,8 @@ export default function SwipePage() {
   const handleSwipe = useCallback(
     async (action: SwipeAction) => {
       const pr = prList[currentIndex]
+      if (!pr) return
+      
       setLastAction(action)
 
       // Update stats
@@ -191,6 +283,16 @@ export default function SwipePage() {
         changesRequested: action === 'changes' ? prev.changesRequested + 1 : prev.changesRequested,
         skipped: action === 'skip' ? prev.skipped + 1 : prev.skipped,
       }))
+
+      // Add to decision history
+      setDecisionHistory((prev) => [
+        {
+          pr,
+          action,
+          decidedAt: new Date().toISOString(),
+        },
+        ...prev,
+      ])
 
       // Update streak
       setStreak((prev) => (action !== 'skip' ? prev + 1 : 0))
@@ -289,16 +391,8 @@ export default function SwipePage() {
       <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-8 px-4 py-6 pb-24 lg:flex-row lg:px-8 lg:pb-20">
         {/* Left column - Card stack or Session Summary */}
         <div className="w-full lg:w-[60%]">
-          {isIngesting ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-3">
-              <div className="font-mono text-sm text-muted-foreground animate-pulse">
-                Fetching PRs from GitHub…
-              </div>
-            </div>
-          ) : isLoadingPRs ? (
-            <div className="flex h-64 flex-col items-center justify-center gap-3">
-              <div className="font-mono text-sm text-muted-foreground animate-pulse">Loading…</div>
-            </div>
+          {isIngesting || isLoadingPRs ? (
+            <IngestingState isIngesting={isIngesting} isLoadingPRs={isLoadingPRs} repo={repoInput} />
           ) : prList.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
               <div className="font-mono text-sm text-foreground">Paste a GitHub repo to start reviewing</div>
@@ -361,9 +455,19 @@ export default function SwipePage() {
         onDeeperAction={handleDeeperAction}
       />
 
-      <BottomStrip stats={stats} />
+      <BottomStrip stats={stats} onFilterClick={(action) => setHistoryFilter(action)} />
 
       <KeyboardHints open={hintsOpen} onClose={() => setHintsOpen(false)} />
+
+      <AnimatePresence>
+        {historyFilter && (
+          <DecisionHistory
+            decisions={decisionHistory.filter((d) => d.action === historyFilter)}
+            action={historyFilter}
+            onClose={() => setHistoryFilter(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -67,3 +67,9 @@ export interface SessionStats {
 }
 
 export type SwipeAction = 'approve' | 'changes' | 'skip'
+
+export interface DecisionRecord {
+  pr: PullRequest
+  action: SwipeAction
+  decidedAt: string // ISO timestamp
+}
