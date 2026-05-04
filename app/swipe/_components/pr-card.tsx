@@ -1,14 +1,43 @@
 'use client'
 
 import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
-import type { PullRequest, SwipeAction } from '../_types'
+import type { PullRequest, SwipeAction, DiffLine } from '../_types'
 import { ExternalLink } from 'lucide-react'
 
 interface PRCardProps {
-  pr: PullRequest
-  isActive: boolean
-  stackIndex: number
-  onSwipe: (action: SwipeAction) => void
+  readonly pr: PullRequest
+  readonly isActive: boolean
+  readonly stackIndex: number
+  readonly onSwipe: (action: SwipeAction) => void
+}
+
+function stateColorClass(state: PullRequest['state']): string {
+  if (state === 'open') return 'bg-[#22C55E]'
+  if (state === 'merged') return 'bg-purple-500'
+  return 'bg-red-500'
+}
+
+function ciColorClass(status: PullRequest['ciStatus']): string {
+  if (status === 'passing') return 'bg-[#22C55E]'
+  if (status === 'failing') return 'bg-[#DC2626]'
+  return 'bg-amber-500'
+}
+
+function diffLineClass(type: DiffLine['type']): string {
+  if (type === 'addition') return 'border-l-2 border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]'
+  if (type === 'deletion') return 'border-l-2 border-[#DC2626] bg-[#DC2626]/10 text-[#DC2626]'
+  return 'text-muted-foreground'
+}
+
+function diffLinePrefix(type: DiffLine['type']): string {
+  if (type === 'addition') return '+'
+  if (type === 'deletion') return '-'
+  return ' '
+}
+
+function cardOpacity(isActive: boolean, stackIndex: number): number {
+  if (isActive) return 1
+  return stackIndex === 1 ? 0.6 : 0.3
 }
 
 export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
@@ -21,38 +50,22 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
 
   const scale = isActive ? 1 : 1 - stackIndex * 0.04
   const translateY = isActive ? 0 : -stackIndex * 8
-  const opacity = isActive ? 1 : stackIndex === 1 ? 0.6 : 0.3
 
   const handleDragEnd = (_: unknown, info: PanInfo) => {
     const threshold = 100
     const velocityThreshold = 500
 
     if (Math.abs(info.velocity.x) > velocityThreshold || Math.abs(info.offset.x) > threshold) {
-      if (info.offset.x > 0) {
-        console.log('[v0] Swiped right - Approve')
-        onSwipe('approve')
-      } else {
-        console.log('[v0] Swiped left - Request changes')
-        onSwipe('changes')
-      }
+      onSwipe(info.offset.x > 0 ? 'approve' : 'changes')
     } else if (info.offset.y > threshold || info.velocity.y > velocityThreshold) {
-      console.log('[v0] Swiped down - Skip')
       onSwipe('skip')
     }
   }
 
-  const stateColor = pr.state === 'open' ? 'bg-[#22C55E]' : pr.state === 'merged' ? 'bg-purple-500' : 'bg-red-500'
-  const ciColor = pr.ciStatus === 'passing' ? 'bg-[#22C55E]' : pr.ciStatus === 'failing' ? 'bg-[#DC2626]' : 'bg-amber-500'
-
   return (
     <motion.div
       className="absolute inset-0 cursor-grab active:cursor-grabbing"
-      style={{
-        scale,
-        y: translateY,
-        opacity,
-        zIndex: 10 - stackIndex,
-      }}
+      style={{ scale, y: translateY, opacity: cardOpacity(isActive, stackIndex), zIndex: 10 - stackIndex }}
       initial={false}
     >
       <motion.div
@@ -64,38 +77,37 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
         onDragEnd={handleDragEnd}
         whileDrag={{ boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)' }}
       >
-        {/* Green overlay for approve */}
         <motion.div
           className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-l from-[#22C55E] to-transparent"
           style={{ opacity: greenOverlayOpacity }}
         />
-        {/* Red overlay for changes */}
         <motion.div
           className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-[#DC2626] to-transparent"
           style={{ opacity: redOverlayOpacity }}
         />
 
         <div className="flex h-full flex-col p-6">
-          {/* Top row: PR number, state, date, CI */}
+          {/* Top row */}
           <div className="flex items-center gap-3 font-mono text-sm">
             <span className="text-foreground">#{pr.number}</span>
-            <span className={`rounded px-2 py-0.5 text-xs font-medium uppercase text-white ${stateColor}`}>
+            <span className={`rounded px-2 py-0.5 text-xs font-medium uppercase text-white ${stateColorClass(pr.state)}`}>
               {pr.state}
             </span>
             <span className="text-muted-foreground">{pr.openedAt}</span>
-            <span className={`rounded px-2 py-0.5 text-xs font-medium text-white ${ciColor}`}>
+            <span className={`rounded px-2 py-0.5 text-xs font-medium text-white ${ciColorClass(pr.ciStatus)}`}>
               CI {pr.ciStatus}
             </span>
           </div>
 
-          {/* Author row */}
+          {/* Author */}
           <div className="mt-4 flex items-center gap-2">
-            <img
-              src={pr.author.avatarUrl}
-              alt={pr.author.handle}
-              className="h-6 w-6 rounded-full"
-              crossOrigin="anonymous"
-            />
+            {pr.author.avatarUrl ? (
+              <img src={pr.author.avatarUrl} alt={pr.author.handle} className="h-6 w-6 rounded-full" crossOrigin="anonymous" />
+            ) : (
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary font-mono text-xs text-muted-foreground">
+                {pr.author.handle[0]?.toUpperCase() ?? '?'}
+              </div>
+            )}
             <span className="font-mono text-sm text-muted-foreground">@{pr.author.handle}</span>
           </div>
 
@@ -104,7 +116,7 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
             {pr.title}
           </h2>
 
-          {/* Body excerpt */}
+          {/* Body */}
           <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
             {pr.body}
           </p>
@@ -115,19 +127,8 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
               <div className="mb-2 font-mono text-xs text-muted-foreground">{pr.diff.filePath}</div>
               <div className="space-y-0.5 font-mono text-xs">
                 {pr.diff.lines.map((line, i) => (
-                  <div
-                    key={i}
-                    className={`rounded px-2 py-0.5 ${
-                      line.type === 'addition'
-                        ? 'border-l-2 border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]'
-                        : line.type === 'deletion'
-                          ? 'border-l-2 border-[#DC2626] bg-[#DC2626]/10 text-[#DC2626]'
-                          : 'text-muted-foreground'
-                    }`}
-                  >
-                    <span className="mr-2 select-none text-muted-foreground">
-                      {line.type === 'addition' ? '+' : line.type === 'deletion' ? '-' : ' '}
-                    </span>
+                  <div key={`${line.type}-${i}`} className={`rounded px-2 py-0.5 ${diffLineClass(line.type)}`}>
+                    <span className="mr-2 select-none text-muted-foreground">{diffLinePrefix(line.type)}</span>
                     {line.content || ' '}
                   </div>
                 ))}
@@ -142,10 +143,10 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
             <span className="text-[#DC2626]">-{pr.deletions}</span>
             <div className="h-3 w-px bg-border" />
             <a
-              href={`https://github.com/resend/resend-node/pull/${pr.number}`}
+              href={pr.htmlUrl ?? `https://github.com/pull/${pr.number}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              className="flex items-center gap-1 transition-colors hover:text-foreground"
               onClick={(e) => e.stopPropagation()}
             >
               View on GitHub

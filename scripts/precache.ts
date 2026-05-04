@@ -19,11 +19,29 @@ const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 
 const REPOS = [
   { owner: "resend", name: "resend-node" },
-  { owner: "resend", name: "resend-py" },
+  { owner: "resend", name: "resend-python" },
   { owner: "resend", name: "react-email" },
 ];
 
+async function isRecentlySynced(owner: string, name: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE_URL}/api/prs?owner=${owner}&repo=${name}`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (!data.lastSynced) return false;
+    const age = Date.now() - new Date(data.lastSynced).getTime();
+    return age < 1000 * 60 * 60; // skip if synced within the last hour
+  } catch {
+    return false;
+  }
+}
+
 async function ingest(owner: string, name: string) {
+  if (await isRecentlySynced(owner, name)) {
+    console.log(`\n⏭  ${owner}/${name} synced recently — skipping`);
+    return;
+  }
+
   console.log(`\n▶ Ingesting ${owner}/${name}…`);
   const start = Date.now();
 

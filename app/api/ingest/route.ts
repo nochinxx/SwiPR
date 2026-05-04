@@ -92,19 +92,27 @@ export async function POST(req: NextRequest) {
         await db.delete(prFiles).where(eq(prFiles.prId, prId));
 
         if (githubFiles.length > 0) {
-          // Embed file patches in batch (cap at first 30 files)
+          // Try to embed patches — non-fatal if AI Gateway is unavailable
           const filesToEmbed = githubFiles.slice(0, 30).filter((f) => f.patch);
           const patchTexts = filesToEmbed.map((f) => f.patch!.slice(0, 4000));
-          const patchEmbeddings = patchTexts.length > 0 ? await embedBatch(patchTexts) : [];
+          let patchEmbeddings: number[][] = [];
+          try {
+            if (patchTexts.length > 0) patchEmbeddings = await embedBatch(patchTexts);
+          } catch {
+            console.warn("[ingest] Embedding unavailable — storing files without vectors");
+          }
 
-          const fileRows = githubFiles.map((f, i) => {
+          const validStatuses = ["added", "modified", "removed", "renamed"];
+          const fileRows = githubFiles.map((f) => {
             const embeddingIndex = filesToEmbed.findIndex((ef) => ef.filename === f.filename);
             return {
               prId,
               filename: f.filename,
-              status: (["added", "modified", "removed", "renamed"].includes(f.status)
-                ? f.status
-                : "modified") as "added" | "modified" | "removed" | "renamed",
+              status: (validStatuses.includes(f.status) ? f.status : "modified") as
+                | "added"
+                | "modified"
+                | "removed"
+                | "renamed",
               additions: f.additions,
               deletions: f.deletions,
               patch: f.patch ?? null,
@@ -115,20 +123,20 @@ export async function POST(req: NextRequest) {
           await db.insert(prFiles).values(fileRows);
         }
 
-        // 5. Embed PR (title + body + top file names)
-        const prText = [
-          gpr.title,
-          gpr.body?.slice(0, 2000) ?? "",
-          githubFiles
-            .slice(0, 10)
-            .map((f) => f.filename)
-            .join(" "),
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-        const prEmbedding = await embedText(prText);
-        await db.update(prs).set({ embedding: prEmbedding }).where(eq(prs.id, prId));
+        // 5. Embed PR — non-fatal if AI Gateway is unavailable
+        try {
+          const prText = [
+            gpr.title,
+            gpr.body?.slice(0, 2000) ?? "",
+            githubFiles.slice(0, 10).map((f) => f.filename).join(" "),
+          ]
+            .filter(Boolean)
+            .join("\n");
+          const prEmbedding = await embedText(prText);
+          await db.update(prs).set({ embedding: prEmbedding }).where(eq(prs.id, prId));
+        } catch {
+          console.warn("[ingest] PR embedding skipped — AI Gateway unavailable");
+        }
 
         // 6. Update contributor stats
         const handle = gpr.user?.login ?? "unknown";
