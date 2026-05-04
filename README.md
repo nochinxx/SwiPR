@@ -1,6 +1,6 @@
 # SwiPR
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+A swipe-to-review interface for open-source GitHub pull requests, with AI-powered context and an MCP server that works in Claude Desktop and Cursor.
 
 ## Why SwiPR exists
 
@@ -12,34 +12,135 @@ Resend's main repo went from 20–40 open PRs per day to 130–200 in a few mont
 
 SwiPR is built for the moment when you have 30 minutes between meetings and 47 PRs in your queue. Triage fast. Stay informed. Don't rubber-stamp.
 
-## Built with v0
+## Live demo
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+**[→ Try SwiPR](https://v0-swipr-build.vercel.app)**
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_TtdAWsXgwKubbweWWn5kZSWK72LO)
+Load any public GitHub repo to start swiping. A good one to try:
 
-## Getting Started
+```
+vercel/next.js
+```
 
-First, run the development server:
+> **Note:** The live demo runs on shared infrastructure with limited AI credits. AI analysis and chat may be unavailable or slow during periods of heavy use. For full, unthrottled use, self-host with your own credentials (see below).
+
+## How it works
+
+1. Paste any public GitHub repo URL — SwiPR fetches the open PRs and stores them
+2. Swipe right to approve, left to request changes, down to skip (or use J / F / Space)
+3. The right panel surfaces context: risk score, what the PR does, similar past changes, contributor history
+4. Ask deeper questions in the chat — the AI has access to the full PR diff and codebase context
+5. Click any counter in the footer to review your decisions
+
+## MCP server
+
+SwiPR exposes an MCP server at `/api/mcp`. Connect it to Claude Desktop or Cursor to review PRs from your AI chat interface.
+
+**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "swipr": {
+      "command": "npx",
+      "args": ["-y", "supergateway", "--streamableHttp", "https://v0-swipr-build.vercel.app/api/mcp"]
+    }
+  }
+}
+```
+
+Then ask Claude: *"Look up vercel/next.js PR #1234, get its risk score, and find similar past changes."*
+
+> **Note:** The MCP server on the live demo uses shared AI credits. For production use, self-host with your own API key.
+
+## Self-hosting
+
+SwiPR requires three services. All have free tiers that cover personal use.
+
+### 1. Clone and install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+git clone https://github.com/nochinxx/SwiPR.git
+cd SwiPR
+pnpm install
+```
+
+### 2. Create accounts
+
+| Service | Purpose | Free tier |
+|---|---|---|
+| [Neon](https://neon.tech) | Postgres + pgvector | 0.5 GB storage |
+| [Vercel AI Gateway](https://vercel.com/ai-gateway) | Claude + embeddings | $5 free credits |
+| GitHub PAT | Higher API rate limits | Free, no scopes needed |
+
+### 3. Configure environment
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in `.env.local`:
+
+```env
+DATABASE_URL=postgresql://...      # Neon pooled connection string
+AI_GATEWAY_API_KEY=...             # Vercel AI Gateway key
+GITHUB_TOKEN=...                   # GitHub PAT (optional, raises rate limit to 5000/hr)
+```
+
+### 4. Initialize the database
+
+In the Neon SQL editor, enable pgvector:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+Then push the schema:
+
+```bash
+pnpm db:push
+```
+
+Add HNSW indexes for fast similarity search (run in Neon SQL editor):
+
+```sql
+CREATE INDEX IF NOT EXISTS prs_embedding_idx ON prs USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS pr_files_embedding_idx ON pr_files USING hnsw (embedding vector_cosine_ops);
+```
+
+### 5. Run locally
+
+```bash
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 6. Pre-cache repos (optional)
 
-## Learn More
+Pre-load PR data so the first load is instant:
 
-To learn more, take a look at the following resources:
+```bash
+pnpm precache
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+Edit `scripts/precache.ts` to change which repos are pre-cached.
 
-<a href="https://v0.app/chat/api/kiro/clone/nochinxx/SwiPR" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+### 7. Deploy to Vercel
+
+Push to GitHub and connect the repo to a Vercel project. Set the same environment variables in Vercel's project settings.
+
+## Stack
+
+- **Next.js 16** — App Router, React 19
+- **Tailwind v4** + **shadcn/ui** — styling
+- **Framer Motion** — card animations
+- **Neon Postgres** + **pgvector** — PR storage and similarity search
+- **Drizzle ORM** — schema and queries
+- **Vercel AI Gateway** — Claude Sonnet 4.6 (analysis + chat), text-embedding-3-small (vectors)
+- **mcp-handler** — MCP server at `/api/mcp`
+- **v0** — UI generation
+
+## Built with v0
+
+The UI was designed and iterated in [v0](https://v0.app) — Vercel's AI-powered UI generation tool. The component architecture, dark mode, card animations, and layout were all generated and refined through v0 prompts before being wired to the backend.
