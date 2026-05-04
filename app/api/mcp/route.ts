@@ -50,6 +50,51 @@ async function getPRWithRepo(prId: string) {
 
 const handler = createMcpHandler(
   (server) => {
+    // ── LOOKUP TOOL — always call this first to resolve owner/repo#number → pr_id ──
+
+    server.tool(
+      "lookup_pr",
+      "Resolve a GitHub PR (owner, repo, number) to its SwiPR internal pr_id and basic metadata. Always call this first when the user refers to a PR by owner/repo#number.",
+      {
+        owner: z.string(),
+        repo: z.string(),
+        number: z.number().int().positive(),
+      },
+      async ({ owner, repo, number }) => {
+        const [repoRow] = await db
+          .select()
+          .from(repos)
+          .where(and(eq(repos.owner, owner), eq(repos.name, repo)))
+          .limit(1);
+
+        if (!repoRow) {
+          return ok({ error: `Repo ${owner}/${repo} not found in SwiPR. It may need to be ingested first.` });
+        }
+
+        const [pr] = await db
+          .select()
+          .from(prs)
+          .where(and(eq(prs.repoId, repoRow.id), eq(prs.number, number)))
+          .limit(1);
+
+        if (!pr) {
+          return ok({ error: `PR #${number} not found in ${owner}/${repo}. It may need to be ingested first.` });
+        }
+
+        return ok({
+          pr_id: pr.id,
+          repo_id: repoRow.id,
+          number: pr.number,
+          title: pr.title,
+          author: pr.authorHandle,
+          additions: pr.additions,
+          deletions: pr.deletions,
+          changed_files: pr.changedFiles,
+          html_url: pr.htmlUrl,
+        });
+      }
+    );
+
     // ── SURFACE TOOLS ──────────────────────────────────────────────────────
 
     server.tool(
