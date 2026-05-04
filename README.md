@@ -26,6 +26,9 @@ vercel/next.js
 
 ## How it works
 
+<img width="1646" height="949" alt="Screenshot 2026-05-03 at 11 21 01 PM" src="https://github.com/user-attachments/assets/27e194ca-a6dc-4e3a-aead-ea24ca144a9d" />
+
+
 1. Paste any public GitHub repo URL — SwiPR fetches the open PRs and stores them
 2. Swipe right to approve, left to request changes, down to skip (or use J / F / Space)
 3. The right panel surfaces context: risk score, what the PR does, similar past changes, contributor history
