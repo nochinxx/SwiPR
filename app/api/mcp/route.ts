@@ -16,6 +16,7 @@ import { db } from "@/db";
 import { repos, prs, prFiles, contributors, sessions, decisions } from "@/db/schema";
 import { computeRiskScore } from "@/lib/scoring";
 import { fetchFileContent } from "@/lib/github";
+import { buildImpactMap } from "@/lib/impact";
 
 const ok = (data: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
@@ -244,6 +245,28 @@ const handler = createMcpHandler(
           mergeRate: mergeRate !== null ? `${mergeRate}%` : "unknown",
           firstPrAt: contributor?.firstPrAt ?? null,
           recentPRs,
+        });
+      }
+    );
+
+    server.tool(
+      "analyze_impact",
+      "Parse the PR's diff for changed exported symbols, search the repo for callers, and return a Mermaid dependency graph showing which files are affected. Render the mermaidGraph field as a code block to visualise the blast radius.",
+      { pr_id: z.string().uuid() },
+      async ({ pr_id }) => {
+        const { pr, repo, files } = await getPRWithRepo(pr_id);
+        const impact = await buildImpactMap(
+          repo.owner,
+          repo.name,
+          files.map((f) => ({ filename: f.filename, patch: f.patch }))
+        );
+        return ok({
+          pr_id,
+          pr_number: pr.number,
+          changedFiles: impact.changedFiles,
+          symbols: impact.symbols,
+          mermaidGraph: impact.mermaidGraph,
+          note: "Render mermaidGraph as a ```mermaid code block to show the dependency graph.",
         });
       }
     );

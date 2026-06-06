@@ -68,6 +68,22 @@ export interface SessionStats {
 
 export type SwipeAction = 'approve' | 'changes' | 'skip'
 
+export interface ImpactCaller {
+  filename: string
+}
+
+export interface ImpactSymbol {
+  symbol: string
+  sourceFile: string
+  callers: ImpactCaller[]
+}
+
+export interface ImpactResult {
+  changedFiles: Array<{ filename: string; symbols: string[] }>
+  symbols: ImpactSymbol[]
+  mermaidGraph: string
+}
+
 export interface DecisionRecord {
   pr: PullRequest
   action: SwipeAction

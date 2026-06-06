@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useChat } from '@ai-sdk/react'
-import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext, DecisionRecord } from './_types'
+import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext, DecisionRecord, ImpactResult } from './_types'
 import { Header } from './_components/header'
 import { CardStack, ActionButtons } from './_components/card-stack'
 import { AIContextPanel } from './_components/ai-context-panel'
@@ -136,6 +136,10 @@ export default function SwipePage() {
   // Context state
   const [context, setContext] = useState<AIContext | null>(null)
   const [isLoadingContext, setIsLoadingContext] = useState(false)
+
+  // Impact map state
+  const [impact, setImpact] = useState<ImpactResult | null>(null)
+  const [isLoadingImpact, setIsLoadingImpact] = useState(false)
 
   // Session
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -276,18 +280,35 @@ export default function SwipePage() {
     }
   }, [])
 
+  // Load impact map for active PR — fetched in parallel with context, not blocking
+  const loadImpact = useCallback(async (pr: PullRequest) => {
+    if (!pr.id) return
+    setIsLoadingImpact(true)
+    setImpact(null)
+    try {
+      const res = await fetch(`/api/impact?prId=${pr.id}`)
+      if (res.ok) setImpact(await res.json())
+    } catch {
+      // non-fatal — impact map is best-effort
+    } finally {
+      setIsLoadingImpact(false)
+    }
+  }, [])
+
   // Try cache first; only ingest if the DB has no data for this repo
   const handleRepoSubmit = useCallback(async (repoStr: string) => {
     const hit = await loadFromCache(repoStr)
     if (!hit) await loadRepo(repoStr)
   }, [loadFromCache, loadRepo])
 
-  // Load context when PR changes
+  // Load context + impact map when PR changes — both fire in parallel
   useEffect(() => {
-    if (prList[currentIndex]) {
-      loadContext(prList[currentIndex])
+    const pr = prList[currentIndex]
+    if (pr) {
+      loadContext(pr)
+      loadImpact(pr)
     }
-  }, [currentIndex, prList, loadContext])
+  }, [currentIndex, prList, loadContext, loadImpact])
 
   // Handle swipe action
   const handleSwipe = useCallback(
@@ -494,6 +515,8 @@ export default function SwipePage() {
               messages={messages}
               onSendMessage={handleSendMessage}
               onDeeperAction={handleDeeperAction}
+              impact={impact}
+              isLoadingImpact={isLoadingImpact}
             />
           </div>
         </aside>
@@ -505,6 +528,8 @@ export default function SwipePage() {
         messages={messages}
         onSendMessage={handleSendMessage}
         onDeeperAction={handleDeeperAction}
+        impact={impact}
+        isLoadingImpact={isLoadingImpact}
       />
 
       <BottomStrip stats={stats} onFilterClick={(action) => setHistoryFilter(action)} />

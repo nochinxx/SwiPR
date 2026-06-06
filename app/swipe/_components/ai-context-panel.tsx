@@ -1,17 +1,20 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import type { AIContext, ChatMessage, SimilarPR } from '../_types'
+import type { AIContext, ChatMessage, SimilarPR, ImpactResult } from '../_types'
 import { useState } from 'react'
 import { GitMerge, GitPullRequest, X, AlertTriangle, Search, FlaskConical, GitCompare, Loader2 } from 'lucide-react'
+import { ImpactMap } from './impact-map'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
 interface AIContextPanelProps {
-  context: AIContext
-  messages: ChatMessage[]
-  onSendMessage: (message: string) => void
-  onDeeperAction?: (action: DeeperAction) => Promise<string>
+  readonly context: AIContext
+  readonly messages: ChatMessage[]
+  readonly onSendMessage: (message: string) => void
+  readonly onDeeperAction?: (action: DeeperAction) => Promise<string>
+  readonly impact?: ImpactResult | null
+  readonly isLoadingImpact?: boolean
 }
 
 const DEEPER_ACTIONS = [
@@ -21,7 +24,7 @@ const DEEPER_ACTIONS = [
   { key: 'compare' as DeeperAction, label: 'Compare with main', icon: GitCompare },
 ]
 
-export function AIContextPanel({ context, messages, onSendMessage, onDeeperAction }: AIContextPanelProps) {
+export function AIContextPanel({ context, messages, onSendMessage, onDeeperAction, impact, isLoadingImpact }: AIContextPanelProps) {
   const [input, setInput] = useState('')
   const [loadingAction, setLoadingAction] = useState<DeeperAction | null>(null)
   const [deeperResult, setDeeperResult] = useState<{ action: DeeperAction; label: string; content: string } | null>(null)
@@ -100,6 +103,23 @@ export function AIContextPanel({ context, messages, onSendMessage, onDeeperActio
             ))}
           </ol>
         </motion.div>
+
+        {/* Impact Map card */}
+        {(isLoadingImpact || impact) && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: 0.08 }}
+            className="rounded-xl border border-border bg-card p-4"
+          >
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Impact Map
+            </div>
+            <div className="mt-3">
+              <ImpactMap impact={impact ?? null} isLoading={isLoadingImpact ?? false} />
+            </div>
+          </motion.div>
+        )}
 
         {/* Similar PRs card */}
         <motion.div
