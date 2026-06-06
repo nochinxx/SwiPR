@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { db, prs, prFiles, contributors, repos } from "@/db";
 import { generateText } from "ai";
-import { models } from "@/lib/ai";
+import { getModelForKey } from "@/lib/ai";
 import { computeRiskScore } from "@/lib/scoring";
 import { fetchFileContent } from "@/lib/github";
 
@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     prId: string;
     repoId: string;
   };
+  const byokKey = req.headers.get("x-api-key");
 
   if (!action || !prId || !repoId) {
     return NextResponse.json({ error: "action, prId, and repoId are required" }, { status: 400 });
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 
       try {
         const { text } = await generateText({
-          model: models.sonnet,
+          model: getModelForKey(byokKey),
           messages: [
             {
               role: "user",

@@ -12,6 +12,11 @@ import { MobileContextSheet } from './_components/mobile-context-sheet'
 import { KeyboardHints } from './_components/keyboard-hints'
 import { SessionSummary } from './_components/session-summary'
 import { DecisionHistory } from './_components/decision-history'
+import { ViewSwitcher, type ViewMode } from './_components/view-switcher'
+import { ViewRiskMatrix } from './_components/view-risk-matrix'
+import { ViewContributorFocus } from './_components/view-contributor-focus'
+import { ViewCategoryGroup } from './_components/view-category-group'
+import { ViewDependencyGraph } from './_components/view-dependency-graph'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
@@ -135,6 +140,15 @@ export default function SwipePage() {
   // Session
   const [sessionId, setSessionId] = useState<string | null>(null)
 
+  // View mode
+  const [viewMode, setViewMode] = useState<ViewMode>('swipe')
+
+  // BYOK — read from localStorage on mount, null during SSR
+  const [byokKey, setByokKey] = useState<string | null>(null)
+  useEffect(() => {
+    setByokKey(localStorage.getItem('swipr_byok_key'))
+  }, [])
+
   // Streak + stats
   const [streak, setStreak] = useState(0)
   const [stats, setStats] = useState<SessionStats>({ approved: 0, changesRequested: 0, skipped: 0 })
@@ -146,6 +160,7 @@ export default function SwipePage() {
   // useChat for AI panel
   const { messages: chatMessages, append, isLoading: isChatLoading } = useChat({
     api: '/api/chat',
+    headers: byokKey ? { 'x-api-key': byokKey } : undefined,
     body: {
       prId: prList[currentIndex]?.id,
       repoId,
@@ -329,7 +344,10 @@ export default function SwipePage() {
       try {
         const res = await fetch('/api/deeper', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(byokKey ? { 'x-api-key': byokKey } : {}),
+          },
           body: JSON.stringify({ action, prId: pr.id, repoId }),
         })
         const data = await res.json()
@@ -383,8 +401,10 @@ export default function SwipePage() {
         totalPRs={prList.length}
         streak={streak}
         defaultRepo={repoInput}
+        byokKey={byokKey}
         onToggleHints={() => setHintsOpen(true)}
         onRepoSubmit={handleRepoSubmit}
+        onByokKeyChange={setByokKey}
         isLoading={isLoading}
       />
 
@@ -400,7 +420,7 @@ export default function SwipePage() {
                 e.g. <span className="text-foreground">resend/resend-node</span> or a full GitHub URL
               </div>
             </div>
-          ) : currentIndex >= prList.length ? (
+          ) : currentIndex >= prList.length && viewMode === 'swipe' ? (
             <SessionSummary
               stats={{
                 approved: stats.approved,
@@ -414,21 +434,47 @@ export default function SwipePage() {
             />
           ) : (
             <>
-              <CardStack prs={prList} currentIndex={currentIndex} onSwipe={handleSwipe} />
+              {/* View switcher — shown once PRs are loaded */}
+              <div className="mb-4 flex items-center justify-between">
+                <ViewSwitcher current={viewMode} onChange={setViewMode} />
+                {viewMode === 'swipe' && (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {Math.max(0, prList.length - currentIndex)} remaining
+                  </span>
+                )}
+              </div>
 
-              {/* Action buttons - visible on all screens */}
-              <ActionButtons onAction={handleSwipe} />
+              {viewMode === 'swipe' && (
+                <>
+                  <CardStack prs={prList} currentIndex={currentIndex} onSwipe={handleSwipe} />
+                  <ActionButtons onAction={handleSwipe} />
+                  {lastAction && lastAction !== 'skip' && (
+                    <motion.div
+                      key={streak}
+                      initial={{ scale: 1.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="mt-4 text-center font-mono text-sm text-muted-foreground"
+                    >
+                      {streak >= 2 && `${streak} in a row!`}
+                    </motion.div>
+                  )}
+                </>
+              )}
 
-              {/* Streak animation */}
-              {lastAction && lastAction !== 'skip' && (
-                <motion.div
-                  key={streak}
-                  initial={{ scale: 1.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="mt-4 text-center font-mono text-sm text-muted-foreground"
-                >
-                  {streak >= 2 && `${streak} in a row!`}
-                </motion.div>
+              {viewMode === 'risk-matrix' && (
+                <ViewRiskMatrix prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+              )}
+
+              {viewMode === 'contributor' && (
+                <ViewContributorFocus prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+              )}
+
+              {viewMode === 'category' && (
+                <ViewCategoryGroup prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+              )}
+
+              {viewMode === 'deps' && (
+                <ViewDependencyGraph prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
               )}
             </>
           )}

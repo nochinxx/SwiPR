@@ -1,4 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import type { LanguageModel } from "ai";
 
 if (!process.env.AI_GATEWAY_API_KEY) {
   throw new Error(
@@ -20,3 +22,14 @@ export const models = {
   /** Embeddings, 1536 dims. */
   embedding: gateway.embedding("openai/text-embedding-3-small"),
 } as const;
+
+/**
+ * Returns a sonnet-class model for the given BYOK key.
+ * Accepts an Anthropic API key (sk-ant-...) — falls back to the shared gateway.
+ */
+export function getModelForKey(byokKey?: string | null): LanguageModel {
+  if (byokKey?.startsWith("sk-ant-")) {
+    return createAnthropic({ apiKey: byokKey })("claude-sonnet-4-6");
+  }
+  return models.sonnet;
+}

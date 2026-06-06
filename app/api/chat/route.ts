@@ -7,16 +7,17 @@
 import { streamText } from "ai";
 import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
-import { models } from "@/lib/ai";
+import { getModelForKey } from "@/lib/ai";
 import { db, prs, prFiles, contributors } from "@/db";
 import { computeRiskScore } from "@/lib/scoring";
 
 export async function POST(req: Request) {
   const { messages, prId, repoId } = await req.json();
+  const byokKey = req.headers.get("x-api-key");
 
   try {
     const result = streamText({
-      model: models.sonnet,
+      model: getModelForKey(byokKey),
       system: `You are a senior software engineer helping review a GitHub Pull Request.
 Answer questions concisely — reviewers are busy. Lead with the most actionable insight.
 Current PR ID: ${prId ?? "unknown"}. Repo ID: ${repoId ?? "unknown"}.`,
