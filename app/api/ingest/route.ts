@@ -13,6 +13,8 @@ import { eq, and } from "drizzle-orm";
 import { db, repos, prs, prFiles, contributors } from "@/db";
 import { fetchOpenPRs, fetchPRFiles, fetchRepoPRHistory } from "@/lib/github";
 import { embedText, embedBatch } from "@/lib/embed";
+import { generateText } from "ai";
+import { models } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   // Require a secret header when INGEST_SECRET is set (production).
@@ -39,10 +41,10 @@ export async function POST(req: NextRequest) {
       repo = inserted;
     }
 
-    // 2. Fetch open PRs from GitHub
+    // 2. Fetch open PRs from GitHub — cap at 100 to keep DB manageable
     console.log(`[ingest] Fetching open PRs for ${owner}/${name}…`);
-    const githubPRs = await fetchOpenPRs(owner, name);
-    console.log(`[ingest] Found ${githubPRs.length} open PRs`);
+    const githubPRs = (await fetchOpenPRs(owner, name)).slice(0, 100);
+    console.log(`[ingest] Found ${githubPRs.length} open PRs (capped at 100)`);
 
     const results: { number: number; status: "upserted" | "skipped"; error?: string }[] = [];
 
@@ -143,6 +145,37 @@ export async function POST(req: NextRequest) {
           await db.update(prs).set({ embedding: prEmbedding }).where(eq(prs.id, prId));
         } catch {
           console.warn("[ingest] PR embedding skipped — AI Gateway unavailable");
+        }
+
+        // 5.5. Generate and cache AI summary — once per PR, never regenerated unless missing
+        const needsSummary = !existing?.aiSummary || existing.aiSummary.length === 0;
+        if (needsSummary) {
+          try {
+            const fileList = githubFiles.slice(0, 10).map((f) => f.filename).join(", ");
+            const { text } = await generateText({
+              model: models.sonnet,
+              messages: [{
+                role: "user",
+                content: [
+                  `Analyze this GitHub PR and return exactly 3 bullet points.`,
+                  `Each bullet must be one short sentence.`,
+                  `Cover: (1) what the PR does, (2) the main risk or concern, (3) a notable detail.`,
+                  ``,
+                  `PR #${gpr.number}: ${gpr.title}`,
+                  `Author: ${gpr.user?.login ?? "unknown"}`,
+                  `Changes: +${gpr.additions}/-${gpr.deletions} across ${gpr.changed_files} files`,
+                  `Files: ${fileList}`,
+                  `Body: ${gpr.body?.slice(0, 800) ?? "(empty)"}`,
+                  ``,
+                  `Return only the 3 bullets, no markdown, no numbers, no intro. One bullet per line.`,
+                ].join("\n"),
+              }],
+            });
+            const bullets = text.trim().split("\n").filter(Boolean).slice(0, 3);
+            await db.update(prs).set({ aiSummary: bullets, aiAnalyzedAt: new Date() }).where(eq(prs.id, prId));
+          } catch {
+            console.warn("[ingest] AI summary skipped — AI Gateway unavailable");
+          }
         }
 
         // 6. Update contributor stats

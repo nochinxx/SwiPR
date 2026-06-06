@@ -11,12 +11,9 @@
 
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { eq, desc, and, sql, count } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { repos, prs, prFiles, contributors, sessions, decisions, chatMessages } from "@/db/schema";
-import { generateText } from "ai";
-import { models } from "@/lib/ai";
-import { embedText } from "@/lib/embed";
+import { repos, prs, prFiles, contributors, sessions, decisions } from "@/db/schema";
 import { computeRiskScore } from "@/lib/scoring";
 import { fetchFileContent } from "@/lib/github";
 
@@ -99,52 +96,61 @@ const handler = createMcpHandler(
 
     server.tool(
       "analyze_pr",
-      "Analyze a PR and return 3 concise bullets describing what it does plus any risk callouts. Call this automatically when a card becomes active.",
+      "Return full structured data for a PR — title, body, changed files with patches, risk score, contributor stats, and cached AI summary if available. Claude should use this data to write its own analysis rather than relying on a pre-generated summary.",
       { pr_id: z.string().uuid() },
       async ({ pr_id }) => {
         const { pr, files } = await getPRWithRepo(pr_id);
-        const fileList = files.slice(0, 20).map((f) => `${f.status} ${f.filename}`).join("\n");
-        const diffSnippet = files
-          .slice(0, 5)
-          .map((f) => f.patch?.slice(0, 500) ?? "")
-          .join("\n---\n");
-
-        const { text } = await generateText({
-          model: models.sonnet,
-          messages: [
-            {
-              role: "user",
-              content: `Analyze this GitHub PR and return exactly 3 bullet points. Each bullet should be one sentence. Cover: (1) what the PR does, (2) the main risk or concern, (3) a notable implementation detail.
-
-PR #${pr.number}: ${pr.title}
-Author: ${pr.authorHandle}
-Changes: +${pr.additions}/-${pr.deletions} across ${pr.changedFiles} files
-
-Files changed:
-${fileList}
-
-Diff sample:
-${diffSnippet}
-
-PR body: ${pr.body?.slice(0, 1000) ?? "(empty)"}
-
-Return only the 3 bullets as plain text, no markdown, no intro.`,
-            },
-          ],
+        const [contributor] = await db
+          .select()
+          .from(contributors)
+          .where(and(eq(contributors.repoId, pr.repoId), eq(contributors.handle, pr.authorHandle)))
+          .limit(1);
+        const { score, reasons } = computeRiskScore(
+          pr,
+          files,
+          contributor?.totalPrs ?? 0,
+          contributor?.mergedPrs ?? 0
+        );
+        return ok({
+          pr_id,
+          pr_number: pr.number,
+          title: pr.title,
+          body: pr.body?.slice(0, 2000) ?? "",
+          author: pr.authorHandle,
+          additions: pr.additions,
+          deletions: pr.deletions,
+          changed_files: pr.changedFiles,
+          html_url: pr.htmlUrl,
+          files: files.slice(0, 20).map((f) => ({
+            filename: f.filename,
+            status: f.status,
+            additions: f.additions,
+            deletions: f.deletions,
+            patch: f.patch?.slice(0, 800) ?? null,
+          })),
+          risk: { score, reasons },
+          contributor: contributor
+            ? {
+                total_prs: contributor.totalPrs,
+                merged_prs: contributor.mergedPrs,
+                merge_rate: contributor.totalPrs > 0
+                  ? `${Math.round((contributor.mergedPrs / contributor.totalPrs) * 100)}%`
+                  : "unknown",
+                first_pr_at: contributor.firstPrAt,
+              }
+            : null,
+          cached_summary: pr.aiSummary ?? null,
         });
-
-        return ok({ pr_id, analysis: text, pr_number: pr.number, title: pr.title });
       }
     );
 
     server.tool(
       "risk_score",
-      "Return a 0-100 risk score for a PR with rationale. Pass verbose=true for a line-by-line breakdown.",
+      "Return a 0-100 heuristic risk score for a PR with a list of reasons. Use the reasons to explain the risk level in your own words.",
       {
         pr_id: z.string().uuid(),
-        verbose: z.boolean().optional().default(false),
       },
-      async ({ pr_id, verbose }) => {
+      async ({ pr_id }) => {
         const { pr, files } = await getPRWithRepo(pr_id);
 
         const [contributor] = await db
@@ -160,27 +166,7 @@ Return only the 3 bullets as plain text, no markdown, no intro.`,
           contributor?.mergedPrs ?? 0
         );
 
-        if (!verbose) {
-          return ok({ pr_id, score, summary: reasons[0] ?? "Low risk" });
-        }
-
-        // Verbose: ask Sonnet for a richer rationale
-        const { text: rationale } = await generateText({
-          model: models.sonnet,
-          messages: [
-            {
-              role: "user",
-              content: `Given this PR risk analysis, write a 2-3 sentence rationale explaining the risk level of ${score}/100.
-
-PR: ${pr.title}
-Heuristic reasons: ${reasons.join("; ")}
-
-Be specific and actionable. Don't repeat the reasons verbatim.`,
-            },
-          ],
-        });
-
-        return ok({ pr_id, score, reasons, rationale });
+        return ok({ pr_id, score, reasons, summary: reasons[0] ?? "Low risk" });
       }
     );
 
@@ -281,16 +267,12 @@ Be specific and actionable. Don't repeat the reasons verbatim.`,
           return ok({ path, error: "File not found or could not be fetched" });
         }
 
-        const prompt = question
-          ? `Analyze this file and answer: "${question}"\n\nFile: ${path}\n\n${content.slice(0, 6000)}`
-          : `Summarize the purpose and key exports of this file in 3-5 sentences.\n\nFile: ${path}\n\n${content.slice(0, 6000)}`;
-
-        const { text } = await generateText({
-          model: models.sonnet,
-          messages: [{ role: "user", content: prompt }],
+        return ok({
+          path,
+          question: question ?? null,
+          content: content.slice(0, 6000),
+          note: "Analyze the content above to answer the question. No pre-generated summary is provided.",
         });
-
-        return ok({ path, content: content.slice(0, 2000), analysis: text });
       }
     );
 
@@ -417,20 +399,13 @@ Be specific and actionable. Don't repeat the reasons verbatim.`,
       "summarize_dependency",
       "Explain what an npm package is and why it appears in this PR, based on the PR context.",
       {
-        repo_id: z.string().uuid(),
         package_name: z.string(),
       },
-      async ({ repo_id, package_name }) => {
-        const { text } = await generateText({
-          model: models.haiku,
-          messages: [
-            {
-              role: "user",
-              content: `Explain what the npm package "${package_name}" does in 2-3 sentences. Focus on what a code reviewer would want to know: its purpose, whether it's well-maintained, and any security or bundle-size concerns.`,
-            },
-          ],
+      async ({ package_name }) => {
+        return ok({
+          package_name,
+          note: `Use your knowledge to explain what "${package_name}" does, whether it's well-maintained, and any security or bundle-size concerns a reviewer should know.`,
         });
-        return ok({ package_name, summary: text });
       }
     );
 

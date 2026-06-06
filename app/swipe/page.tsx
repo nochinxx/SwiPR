@@ -143,11 +143,17 @@ export default function SwipePage() {
   // View mode
   const [viewMode, setViewMode] = useState<ViewMode>('swipe')
 
-  // BYOK — read from localStorage on mount, null during SSR
-  const [byokKey, setByokKey] = useState<string | null>(null)
+  // BYOK — Anthropic key stored in localStorage, passed as header to /api/chat
+  const [userApiKey, setUserApiKey] = useState('')
   useEffect(() => {
-    setByokKey(localStorage.getItem('swipr_byok_key'))
+    const stored = localStorage.getItem('swipr:apiKey') ?? ''
+    setUserApiKey(stored)
   }, [])
+  const handleApiKeyChange = (key: string) => {
+    setUserApiKey(key)
+    if (key) localStorage.setItem('swipr:apiKey', key)
+    else localStorage.removeItem('swipr:apiKey')
+  }
 
   // Streak + stats
   const [streak, setStreak] = useState(0)
@@ -160,7 +166,7 @@ export default function SwipePage() {
   // useChat for AI panel
   const { messages: chatMessages, append, isLoading: isChatLoading } = useChat({
     api: '/api/chat',
-    headers: byokKey ? { 'x-api-key': byokKey } : undefined,
+    headers: userApiKey ? { 'x-user-api-key': userApiKey } : {},
     body: {
       prId: prList[currentIndex]?.id,
       repoId,
@@ -346,7 +352,7 @@ export default function SwipePage() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(byokKey ? { 'x-api-key': byokKey } : {}),
+            ...(userApiKey ? { 'x-user-api-key': userApiKey } : {}),
           },
           body: JSON.stringify({ action, prId: pr.id, repoId }),
         })
@@ -401,10 +407,10 @@ export default function SwipePage() {
         totalPRs={prList.length}
         streak={streak}
         defaultRepo={repoInput}
-        byokKey={byokKey}
+        apiKey={userApiKey}
         onToggleHints={() => setHintsOpen(true)}
         onRepoSubmit={handleRepoSubmit}
-        onByokKeyChange={setByokKey}
+        onApiKeyChange={handleApiKeyChange}
         isLoading={isLoading}
       />
 

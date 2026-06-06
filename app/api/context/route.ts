@@ -60,30 +60,37 @@ export async function GET(req: NextRequest) {
     // 1. Risk score — heuristic, no LLM needed
     Promise.resolve(computeRiskScore(pr, files, totalPrs, contributor?.mergedPrs ?? 0)),
 
-    // 2. Sonnet analysis — degrades to heuristic bullets on failure
-    generateText({
-      model: models.sonnet,
-      messages: [
-        {
-          role: "user",
-          content: [
-            `Analyze this GitHub PR and return exactly 3 bullet points.`,
-            `Each bullet must be one short sentence.`,
-            `Cover: (1) what the PR does, (2) the main risk or concern, (3) a notable detail.`,
-            ``,
-            `PR #${pr.number}: ${pr.title}`,
-            `Author: ${pr.authorHandle}`,
-            `Changes: +${pr.additions}/-${pr.deletions} across ${pr.changedFiles} files`,
-            `Files: ${files.slice(0, 10).map((f) => f.filename).join(", ")}`,
-            `Body: ${pr.body?.slice(0, 800) ?? "(empty)"}`,
-            ``,
-            `Return only the 3 bullets, no markdown, no numbers, no intro. One bullet per line.`,
-          ].join("\n"),
-        },
-      ],
-    })
-      .then((r) => r.text.trim().split("\n").filter(Boolean).slice(0, 3))
-      .catch(() => fallbackSummary(pr, totalPrs)),
+    // 2. Summary — read from cache if available, otherwise call Sonnet once and cache it
+    (async (): Promise<string[]> => {
+      if (pr.aiSummary && pr.aiSummary.length > 0) return pr.aiSummary;
+      try {
+        const result = await generateText({
+          model: models.sonnet,
+          messages: [{
+            role: "user",
+            content: [
+              `Analyze this GitHub PR and return exactly 3 bullet points.`,
+              `Each bullet must be one short sentence.`,
+              `Cover: (1) what the PR does, (2) the main risk or concern, (3) a notable detail.`,
+              ``,
+              `PR #${pr.number}: ${pr.title}`,
+              `Author: ${pr.authorHandle}`,
+              `Changes: +${pr.additions}/-${pr.deletions} across ${pr.changedFiles} files`,
+              `Files: ${files.slice(0, 10).map((f) => f.filename).join(", ")}`,
+              `Body: ${pr.body?.slice(0, 800) ?? "(empty)"}`,
+              ``,
+              `Return only the 3 bullets, no markdown, no numbers, no intro. One bullet per line.`,
+            ].join("\n"),
+          }],
+        });
+        const bullets = result.text.trim().split("\n").filter(Boolean).slice(0, 3);
+        // Cache for future requests — fire and forget
+        db.update(prs).set({ aiSummary: bullets, aiAnalyzedAt: new Date() }).where(eq(prs.id, pr.id)).catch(() => {});
+        return bullets;
+      } catch {
+        return fallbackSummary(pr, totalPrs);
+      }
+    })(),
 
     // 3. Similar PRs — pgvector cosine search
     embedding

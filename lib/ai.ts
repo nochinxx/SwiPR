@@ -23,13 +23,10 @@ export const models = {
   embedding: gateway.embedding("openai/text-embedding-3-small"),
 } as const;
 
-/**
- * Returns a sonnet-class model for the given BYOK key.
- * Accepts an Anthropic API key (sk-ant-...) — falls back to the shared gateway.
- */
+/** Returns a Sonnet model for the given BYOK key; falls back to the shared gateway. */
 export function getModelForKey(byokKey?: string | null): LanguageModel {
   if (byokKey?.startsWith("sk-ant-")) {
-    return createAnthropic({ apiKey: byokKey })("claude-sonnet-4-6");
+    return createAnthropic({ apiKey: byokKey })("claude-sonnet-4-6-20251001");
   }
   return models.sonnet;
 }

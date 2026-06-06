@@ -15,12 +15,11 @@ score, similar past changes, contributor history, related code, test coverage.
 The reviewer can ask for more depth on demand, turning each card into a
 "senior eng at your shoulder" experience.
 
-**Built for:** Vercel hackathon, Track 2 (v0 + MCPs).
+**Goal:** Maximize adoption as a developer tool and Claude MCP plugin.
 
-**Demo target:** Resend (open source, has publicly named PR review as a
-bottleneck — AI generates PRs faster than humans can verify, relying solely
-on tests is annoying). Generic flow: paste any public GitHub repo URL, see
-open PRs as a card stack.
+**Primary surface:** Web UI at v0-swipr-build.vercel.app. Secondary surface:
+Claude Desktop / Cursor via the MCP server at `/api/mcp`. Same data, two
+surfaces.
 
 **Working name:** SwiPR (Swipe + PR).
 
@@ -53,55 +52,47 @@ The killer demo is two-fold:
 
 ## Status
 
-Last updated: 2026-05-03. Update this when you finish work.
+Last updated: 2026-06-06. Update this when you finish work.
 
-### Done
-- Pivot from Trajectory locked. Stack patterns proven (Drizzle + Neon +
-  pgvector + mcp-handler + AI Gateway all work end-to-end on Trajectory).
-- Name locked: SwiPR.
-- Visual identity locked (Vercel × Resend; see **Visual identity** below).
-- Concept locked: progressive disclosure via chat + quick action buttons.
-- v0 generated: swipe screen (card stack, AI context panel, bottom strip, header).
-- v0 generated: landing page + full dark mode (ThemeProvider wired, ThemeToggle in header).
-- Backend scaffolded (Claude Code):
-  - `db/schema.ts` — 7 tables + pgvector (repos, prs, pr_files, contributors, sessions, decisions, chat_messages)
-  - `db/index.ts` — Neon + Drizzle client
-  - `lib/ai.ts` — AI Gateway client (Sonnet 4.6, Haiku 4.5, text-embedding-3-small)
-  - `lib/embed.ts` — embedText, embedBatch, averageVectors
-  - `lib/scoring.ts` — heuristic risk score (0-100) with breakdown
-  - `lib/github.ts` — Octokit wrapper (fetchOpenPRs, fetchPRFiles, fetchFileContent, fetchRepoPRHistory)
-  - `app/api/mcp/route.ts` — all 12 MCP tools (surface + deeper + state)
-  - `app/api/ingest/route.ts` — POST handler (upsert → embed → store)
-  - `app/api/chat/route.ts` — streamText with 6 tools registered as function tools
-  - `.env.example`, `drizzle.config.ts`, `db:push` + `db:studio` scripts
-
-### In progress
-- v0 working on `prompts/v0-03-keyboard-hints.md` (session summary / keyboard hints)
-
-### Done (v0 UI)
-- `prompts/v0-02-deeper-buttons.md` — DeeperButtons + enhanced AI panel ✓ (commit df58e2d)
+### Done — full stack shipped
+- Visual identity locked (see **Visual identity** below)
+- All UI components: card stack, AI context panel, deeper buttons, chat input,
+  mobile sheet, session summary, decision history, keyboard hints overlay
+- All backend routes: ingest, prs, context, session, decide, deeper, chat, mcp
+- MCP server live at `https://v0-swipr-build.vercel.app/api/mcp` — 12 tools
+- Claude Desktop connected via supergateway (see claude_desktop_config.json)
+- Cost controls (2026-06-06, Claude Code):
+  - AI summary cached in DB at ingest time (`prs.ai_summary`, `prs.ai_analyzed_at`)
+  - `/api/context` reads from cache — no Sonnet call on card view if cached
+  - MCP tools stripped of internal `generateText` calls — zero gateway cost per tool
+  - `/api/chat` BYOK: accepts `x-user-api-key` header, routes to Anthropic directly
+  - Header UI: `⌘` button opens API key popover, stored in localStorage
+  - Ingest capped at 100 PRs/repo to protect DB storage
+- README rewritten for OSS launch: MCP setup first, hackathon framing removed,
+  BYOK and storage limits documented, Contributing section added
 
 ### Pending — in priority order
-1. Run `prompts/v0-05-wire-real-data.md` in v0 — wires page.tsx to real API, useChat, onDeeperAction.
-2. Pre-cache 3 Resend repos: `POST /api/ingest` for resend/resend-node, resend/resend-py, resend/react-email.
-3. Connect Claude Desktop to deployed MCP for the killer demo moment.
-4. Demo prep — pitch rehearsal, fallback video, end-to-end test.
+1. **DB migration** — run in Neon SQL editor:
+   ```sql
+   ALTER TABLE prs ADD COLUMN IF NOT EXISTS ai_summary text[];
+   ALTER TABLE prs ADD COLUMN IF NOT EXISTS ai_analyzed_at timestamp;
+   ```
+2. **Mermaid blast-radius panel** — replace raw diff lines in PRCard with an
+   impact map: parse changed function names from patch → GitHub Search API for
+   callers → render as Mermaid diagram in the AI panel. New files:
+   `lib/impact.ts`, `app/swipe/_components/impact-map.tsx`,
+   MCP tool `analyze_impact(pr_id)`.
+3. **`ingest_repo` + `list_repos` MCP tools** — so the Claude plugin works for
+   any repo without pre-ingesting via the web UI.
+4. **MCP directory submissions** — smithery.ai, mcp.so, awesome-mcp-servers PR.
+5. **Manufact companion package** — thin MCP proxy for self-hosting via Manufact.
 
-### Backend API routes added (Claude Code, 2026-05-03)
-- `lib/diff.ts` — patch parser + relativeTime helper
-- `app/api/prs/route.ts` — GET /api/prs?owner=&repo= (real PRs from DB in UI shape)
-- `app/api/context/route.ts` — GET /api/context?prId= (4 surface tools in parallel)
-- `app/api/session/route.ts` — POST /api/session, GET /api/session?id=
-- `prompts/v0-05-wire-real-data.md` — v0 prompt to wire frontend to real data
-
-### Cut from MVP (don't be tempted)
-- GitHub OAuth — read-only public is enough; 60/hr rate limit is fine for demo
-- Posting reviews back to GitHub — show the draft, never actually post
+### Cut — keep these out
+- GitHub OAuth — read-only public is enough
+- Posting reviews back to GitHub — show the draft, never post
 - Multi-user accounts — single anonymous session is fine
-- Branch comparison beyond `main` — only support `main` for v1
-- Repo crawling beyond open PRs — closed PRs not needed
-- v0 generations beyond the main swipe screen unless time allows (landing
-  page, settings, etc. are nice-to-have)
+- Branch comparison beyond `main`
+- Closed PR crawling
 
 ---
 

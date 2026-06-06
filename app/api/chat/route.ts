@@ -13,11 +13,11 @@ import { computeRiskScore } from "@/lib/scoring";
 
 export async function POST(req: Request) {
   const { messages, prId, repoId } = await req.json();
-  const byokKey = req.headers.get("x-api-key");
+  const userApiKey = req.headers.get("x-user-api-key");
 
   try {
     const result = streamText({
-      model: getModelForKey(byokKey),
+      model: getModelForKey(userApiKey),
       system: `You are a senior software engineer helping review a GitHub Pull Request.
 Answer questions concisely — reviewers are busy. Lead with the most actionable insight.
 Current PR ID: ${prId ?? "unknown"}. Repo ID: ${repoId ?? "unknown"}.`,

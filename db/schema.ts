@@ -52,6 +52,8 @@ export const prs = pgTable(
     changedFiles: integer("changed_files").notNull().default(0),
     htmlUrl: text("html_url").notNull(),
     embedding: vector("embedding", { dimensions: 1536 }),
+    aiSummary: text("ai_summary").array(),
+    aiAnalyzedAt: timestamp("ai_analyzed_at"),
     prCreatedAt: timestamp("pr_created_at").notNull(),
     prUpdatedAt: timestamp("pr_updated_at").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),

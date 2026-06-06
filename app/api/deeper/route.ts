@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     prId: string;
     repoId: string;
   };
-  const byokKey = req.headers.get("x-api-key");
+  const byokKey = req.headers.get("x-user-api-key");
 
   if (!action || !prId || !repoId) {
     return NextResponse.json({ error: "action, prId, and repoId are required" }, { status: 400 });
