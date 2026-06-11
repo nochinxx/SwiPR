@@ -15,10 +15,13 @@ node_modules
 .next/
 .DS_Store
 .vercel
-prompts/v0-02-deeper-buttons.md
-prompts/v0-03-keyboard-hints.md
-.gitignore
-prompts/v0-05-wire-real-data.md
+
+# Internal agent memory — not for public consumption
+AGENTS.md
+CLAUDE.md
+
+# v0 generation prompts — internal design artifacts
+prompts/
 
 # Social copy — kept local, never committed
 social/

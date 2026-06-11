@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { db, repos, prs, prFiles, contributors } from "@/db";
 import { fetchOpenPRs, fetchPRFiles, fetchRepoPRHistory } from "@/lib/github";
-import { embedText, embedBatch } from "@/lib/embed";
+import { embedBatch } from "@/lib/embed";
 import { generateText } from "ai";
 import { getModelForKey } from "@/lib/ai";
 
@@ -48,6 +48,9 @@ export async function POST(req: NextRequest) {
     console.log(`[ingest] Found ${githubPRs.length} open PRs (capped at 100)`);
 
     const results: { number: number; status: "upserted" | "skipped"; error?: string }[] = [];
+
+    // Collect data needed for batch embedding after all PRs are upserted
+    const toEmbed: { prId: string; text: string }[] = [];
 
     for (const gpr of githubPRs) {
       try {
@@ -96,45 +99,30 @@ export async function POST(req: NextRequest) {
           prId = inserted.id;
         }
 
-        // 4. Fetch and upsert PR files
+        // 4. Fetch and upsert PR files (no patch embeddings — too many gateway calls)
         const githubFiles = await fetchPRFiles(owner, name, gpr.number);
 
         await db.delete(prFiles).where(eq(prFiles.prId, prId));
 
         if (githubFiles.length > 0) {
-          // Try to embed patches — non-fatal if AI Gateway is unavailable
-          const filesToEmbed = githubFiles.slice(0, 30).filter((f) => f.patch);
-          const patchTexts = filesToEmbed.map((f) => f.patch!.slice(0, 4000));
-          let patchEmbeddings: number[][] = [];
-          try {
-            if (patchTexts.length > 0) patchEmbeddings = await embedBatch(patchTexts);
-          } catch {
-            console.warn("[ingest] Embedding unavailable — storing files without vectors");
-          }
-
           const validStatuses = ["added", "modified", "removed", "renamed"];
-          const fileRows = githubFiles.map((f) => {
-            const embeddingIndex = filesToEmbed.findIndex((ef) => ef.filename === f.filename);
-            return {
-              prId,
-              filename: f.filename,
-              status: (validStatuses.includes(f.status) ? f.status : "modified") as
-                | "added"
-                | "modified"
-                | "removed"
-                | "renamed",
-              additions: f.additions,
-              deletions: f.deletions,
-              patch: f.patch ?? null,
-              embedding: embeddingIndex >= 0 ? patchEmbeddings[embeddingIndex] : undefined,
-            };
-          });
-
+          const fileRows = githubFiles.map((f) => ({
+            prId,
+            filename: f.filename,
+            status: (validStatuses.includes(f.status) ? f.status : "modified") as
+              | "added"
+              | "modified"
+              | "removed"
+              | "renamed",
+            additions: f.additions,
+            deletions: f.deletions,
+            patch: f.patch ?? null,
+          }));
           await db.insert(prFiles).values(fileRows);
         }
 
-        // 5. Embed PR — non-fatal if AI Gateway is unavailable
-        try {
+        // Queue PR text for batch embedding at end of ingest
+        if (!existing?.embedding) {
           const prText = [
             gpr.title,
             gpr.body?.slice(0, 2000) ?? "",
@@ -142,13 +130,10 @@ export async function POST(req: NextRequest) {
           ]
             .filter(Boolean)
             .join("\n");
-          const prEmbedding = await embedText(prText);
-          await db.update(prs).set({ embedding: prEmbedding }).where(eq(prs.id, prId));
-        } catch {
-          console.warn("[ingest] PR embedding skipped — AI Gateway unavailable");
+          toEmbed.push({ prId, text: prText });
         }
 
-        // 5.5. Generate and cache AI summary — once per PR, never regenerated unless missing
+        // 5. Generate and cache AI summary — once per PR, never regenerated unless missing
         const needsSummary = !existing?.aiSummary || existing.aiSummary.length === 0;
         if (needsSummary) {
           try {
@@ -174,8 +159,8 @@ export async function POST(req: NextRequest) {
             });
             const bullets = text.trim().split("\n").filter(Boolean).slice(0, 3);
             await db.update(prs).set({ aiSummary: bullets, aiAnalyzedAt: new Date() }).where(eq(prs.id, prId));
-          } catch {
-            console.warn("[ingest] AI summary skipped — AI Gateway unavailable");
+          } catch (err) {
+            console.warn("[ingest] AI summary skipped:", err);
           }
         }
 
@@ -220,7 +205,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7. Mark repo as synced
+    // 7. Batch-embed all PR texts in one gateway call (avoids per-PR rate limit hits)
+    if (toEmbed.length > 0) {
+      try {
+        console.log(`[ingest] Embedding ${toEmbed.length} PRs in one batch…`);
+        const embeddings = await embedBatch(toEmbed.map((e) => e.text));
+        await Promise.all(
+          toEmbed.map((e, i) =>
+            db.update(prs).set({ embedding: embeddings[i] }).where(eq(prs.id, e.prId))
+          )
+        );
+        console.log(`[ingest] Embedded ${embeddings.length} PRs`);
+      } catch (err) {
+        console.warn("[ingest] PR batch embedding skipped:", err);
+      }
+    }
+
+    // 8. Mark repo as synced
     await db.update(repos).set({ lastSynced: new Date() }).where(eq(repos.id, repo.id));
 
     return NextResponse.json({
