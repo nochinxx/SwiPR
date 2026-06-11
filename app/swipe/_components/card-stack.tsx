@@ -1,16 +1,18 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import type { PullRequest, SwipeAction } from '../_types'
+import type { PullRequest, SwipeAction, ImpactResult } from '../_types'
 import { PRCard } from './pr-card'
 
 interface CardStackProps {
-  prs: PullRequest[]
-  currentIndex: number
-  onSwipe: (action: SwipeAction) => void
+  readonly prs: PullRequest[]
+  readonly currentIndex: number
+  readonly onSwipe: (action: SwipeAction) => void
+  readonly impact?: ImpactResult | null
+  readonly isLoadingImpact?: boolean
 }
 
-export function CardStack({ prs, currentIndex, onSwipe }: CardStackProps) {
+export function CardStack({ prs, currentIndex, onSwipe, impact, isLoadingImpact }: CardStackProps) {
   const visiblePRs = prs.slice(currentIndex, currentIndex + 3)
 
   return (
@@ -33,6 +35,8 @@ export function CardStack({ prs, currentIndex, onSwipe }: CardStackProps) {
               isActive={index === 0}
               stackIndex={index}
               onSwipe={onSwipe}
+              impact={index === 0 ? impact : null}
+              isLoadingImpact={index === 0 ? (isLoadingImpact ?? false) : false}
             />
           </motion.div>
         ))}

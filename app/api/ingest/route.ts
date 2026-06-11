@@ -230,6 +230,25 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error("[ingest] Fatal error:", err);
+    const status = (err as { status?: number }).status;
+    if (status === 401) {
+      return NextResponse.json(
+        { error: "GitHub token is invalid or expired. Rotate GITHUB_TOKEN in your Vercel environment variables." },
+        { status: 502 }
+      );
+    }
+    if (status === 404) {
+      return NextResponse.json(
+        { error: `Repository ${owner}/${name} not found or is private.` },
+        { status: 404 }
+      );
+    }
+    if (status === 403) {
+      return NextResponse.json(
+        { error: "GitHub API rate limit exceeded or access denied. Try again later." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

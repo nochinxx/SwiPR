@@ -1,14 +1,17 @@
 'use client'
 
 import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
-import type { PullRequest, SwipeAction, DiffLine } from '../_types'
+import type { PullRequest, SwipeAction, ImpactResult } from '../_types'
 import { ExternalLink } from 'lucide-react'
+import { ImpactMap } from './impact-map'
 
 interface PRCardProps {
   readonly pr: PullRequest
   readonly isActive: boolean
   readonly stackIndex: number
   readonly onSwipe: (action: SwipeAction) => void
+  readonly impact?: ImpactResult | null
+  readonly isLoadingImpact?: boolean
 }
 
 function stateColorClass(state: PullRequest['state']): string {
@@ -23,24 +26,12 @@ function ciColorClass(status: PullRequest['ciStatus']): string {
   return 'bg-amber-500'
 }
 
-function diffLineClass(type: DiffLine['type']): string {
-  if (type === 'addition') return 'border-l-2 border-[#22C55E] bg-[#22C55E]/10 text-[#22C55E]'
-  if (type === 'deletion') return 'border-l-2 border-[#DC2626] bg-[#DC2626]/10 text-[#DC2626]'
-  return 'text-muted-foreground'
-}
-
-function diffLinePrefix(type: DiffLine['type']): string {
-  if (type === 'addition') return '+'
-  if (type === 'deletion') return '-'
-  return ' '
-}
-
 function cardOpacity(isActive: boolean, stackIndex: number): number {
   if (isActive) return 1
   return stackIndex === 1 ? 0.6 : 0.3
 }
 
-export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
+export function PRCard({ pr, isActive, stackIndex, onSwipe, impact, isLoadingImpact }: PRCardProps) {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
 
@@ -121,19 +112,18 @@ export function PRCard({ pr, isActive, stackIndex, onSwipe }: PRCardProps) {
             {pr.body}
           </p>
 
-          {/* Diff preview */}
+          {/* Impact map — active card shows live data, inactive cards show extended body */}
           <div className="mt-4 flex-1 overflow-hidden">
-            <div className="rounded-lg bg-secondary p-4">
-              <div className="mb-2 font-mono text-xs text-muted-foreground">{pr.diff.filePath}</div>
-              <div className="space-y-0.5 font-mono text-xs">
-                {pr.diff.lines.map((line, i) => (
-                  <div key={`${line.type}-${i}`} className={`rounded px-2 py-0.5 ${diffLineClass(line.type)}`}>
-                    <span className="mr-2 select-none text-muted-foreground">{diffLinePrefix(line.type)}</span>
-                    {line.content || ' '}
-                  </div>
-                ))}
+            {isActive ? (
+              <div className="rounded-lg bg-secondary p-3">
+                <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Impact</p>
+                <ImpactMap impact={impact ?? null} isLoading={isLoadingImpact ?? false} />
               </div>
-            </div>
+            ) : (
+              <p className="line-clamp-6 text-sm leading-relaxed text-muted-foreground/60">
+                {pr.body}
+              </p>
+            )}
           </div>
 
           {/* Footer */}

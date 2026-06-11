@@ -105,21 +105,19 @@ export function AIContextPanel({ context, messages, onSendMessage, onDeeperActio
         </motion.div>
 
         {/* Impact Map card */}
-        {(isLoadingImpact || impact) && (
-          <motion.div
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, delay: 0.08 }}
-            className="rounded-xl border border-border bg-card p-4"
-          >
-            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Impact Map
-            </div>
-            <div className="mt-3">
-              <ImpactMap impact={impact ?? null} isLoading={isLoadingImpact ?? false} />
-            </div>
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: 0.08 }}
+          className="rounded-xl border border-border bg-card p-4"
+        >
+          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Impact Map
+          </div>
+          <div className="mt-3">
+            <ImpactMap impact={impact ?? null} isLoading={isLoadingImpact ?? false} />
+          </div>
+        </motion.div>
 
         {/* Similar PRs card */}
         <motion.div

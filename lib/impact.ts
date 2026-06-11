@@ -13,7 +13,7 @@ export interface ImpactSymbol {
 }
 
 export interface ImpactResult {
-  changedFiles: Array<{ filename: string; symbols: string[] }>;
+  changedFiles: Array<{ filename: string; symbols: string[]; additions?: number; deletions?: number }>;
   symbols: ImpactSymbol[];
   mermaidGraph: string;
 }
@@ -70,15 +70,15 @@ function sanitizeMermaidId(s: string): string {
 export async function buildImpactMap(
   owner: string,
   repo: string,
-  files: Array<{ filename: string; patch: string | null }>
+  files: Array<{ filename: string; patch: string | null; additions?: number; deletions?: number }>
 ): Promise<ImpactResult> {
-  // 1. Extract changed symbols per file
-  const changedFiles: ImpactResult["changedFiles"] = [];
-  for (const f of files.slice(0, 10)) {
-    if (!f.patch) continue;
-    const symbols = extractSymbols(f.patch);
-    if (symbols.length > 0) changedFiles.push({ filename: f.filename, symbols });
-  }
+  // 1. Record ALL changed files; extract symbols where present
+  const changedFiles: ImpactResult["changedFiles"] = files.slice(0, 10).map((f) => ({
+    filename: f.filename,
+    symbols: f.patch ? extractSymbols(f.patch) : [],
+    additions: f.additions,
+    deletions: f.deletions,
+  }));
 
   // 2. Search for callers — max 4 symbols to stay within GitHub's 10 req/min search limit
   const candidates = changedFiles
@@ -121,9 +121,9 @@ export async function buildImpactMap(
     }
   }
 
-  // No callers found — just show the changed files as nodes
+  // No callers found — show all changed files as nodes
   if (!hasEdges) {
-    for (const { filename } of changedFiles.slice(0, 6)) {
+    for (const { filename } of changedFiles.slice(0, 8)) {
       const id = sanitizeMermaidId(shortName(filename));
       lines.push(`  ${id}["${shortName(filename)}"]:::changed`);
     }

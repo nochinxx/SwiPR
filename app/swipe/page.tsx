@@ -473,7 +473,7 @@ export default function SwipePage() {
 
               {viewMode === 'swipe' && (
                 <>
-                  <CardStack prs={prList} currentIndex={currentIndex} onSwipe={handleSwipe} />
+                  <CardStack prs={prList} currentIndex={currentIndex} onSwipe={handleSwipe} impact={impact} isLoadingImpact={isLoadingImpact} />
                   <ActionButtons onAction={handleSwipe} />
                   {lastAction && lastAction !== 'skip' && (
                     <motion.div

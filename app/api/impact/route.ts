@@ -22,11 +22,19 @@ export async function GET(req: NextRequest) {
   if (!repo) return NextResponse.json({ error: "Repo not found" }, { status: 404 });
 
   const files = await db
-    .select({ filename: prFiles.filename, patch: prFiles.patch })
+    .select({ filename: prFiles.filename, patch: prFiles.patch, additions: prFiles.additions, deletions: prFiles.deletions })
     .from(prFiles)
     .where(eq(prFiles.prId, prId));
 
-  const impact = await buildImpactMap(repo.owner, repo.name, files);
-
-  return NextResponse.json(impact);
+  // Always return something — fall back to file list if caller search fails
+  try {
+    const impact = await buildImpactMap(repo.owner, repo.name, files);
+    return NextResponse.json(impact);
+  } catch {
+    return NextResponse.json({
+      changedFiles: files.map((f) => ({ filename: f.filename, symbols: [], additions: f.additions ?? 0, deletions: f.deletions ?? 0 })),
+      symbols: [],
+      mermaidGraph: "",
+    });
+  }
 }
