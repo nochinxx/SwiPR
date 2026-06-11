@@ -13,8 +13,6 @@ import { eq, and } from "drizzle-orm";
 import { db, repos, prs, prFiles, contributors } from "@/db";
 import { fetchOpenPRs, fetchPRFiles, fetchRepoPRHistory } from "@/lib/github";
 import { embedBatch } from "@/lib/embed";
-import { generateText } from "ai";
-import { getModelForKey } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   // Require a secret header when INGEST_SECRET is set (production).
@@ -24,7 +22,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userApiKey = req.headers.get("x-user-api-key");
   const body = await req.json();
   const owner = body?.owner?.toString().trim();
   const name = body?.name?.toString().trim();
@@ -133,38 +130,7 @@ export async function POST(req: NextRequest) {
           toEmbed.push({ prId, text: prText });
         }
 
-        // 5. Generate and cache AI summary — once per PR, never regenerated unless missing
-        const needsSummary = !existing?.aiSummary || existing.aiSummary.length === 0;
-        if (needsSummary) {
-          try {
-            const fileList = githubFiles.slice(0, 10).map((f) => f.filename).join(", ");
-            const { text } = await generateText({
-              model: getModelForKey(userApiKey),
-              messages: [{
-                role: "user",
-                content: [
-                  `Analyze this GitHub PR and return exactly 3 bullet points.`,
-                  `Each bullet must be one short sentence.`,
-                  `Cover: (1) what the PR does, (2) the main risk or concern, (3) a notable detail.`,
-                  ``,
-                  `PR #${gpr.number}: ${gpr.title}`,
-                  `Author: ${gpr.user?.login ?? "unknown"}`,
-                  `Changes: +${gpr.additions}/-${gpr.deletions} across ${gpr.changed_files} files`,
-                  `Files: ${fileList}`,
-                  `Body: ${gpr.body?.slice(0, 800) ?? "(empty)"}`,
-                  ``,
-                  `Return only the 3 bullets, no markdown, no numbers, no intro. One bullet per line.`,
-                ].join("\n"),
-              }],
-            });
-            const bullets = text.trim().split("\n").filter(Boolean).slice(0, 3);
-            await db.update(prs).set({ aiSummary: bullets, aiAnalyzedAt: new Date() }).where(eq(prs.id, prId));
-          } catch (err) {
-            console.warn("[ingest] AI summary skipped:", err);
-          }
-        }
-
-        // 6. Update contributor stats
+        // 5. Update contributor stats
         const handle = gpr.user?.login ?? "unknown";
         const history = await fetchRepoPRHistory(owner, name, handle);
 

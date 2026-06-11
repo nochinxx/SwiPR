@@ -82,7 +82,7 @@ Then ask Claude:
 
 ### Using SwiPR as a plugin
 
-SwiPR is listed on [smithery.ai](https://smithery.ai/server/swipr) and [mcp.so](https://mcp.so/server/swipr). If your MCP client has a plugin directory, search for **SwiPR**. If you're self-hosting, point the URL at your own deployment instead of the shared one.
+SwiPR is listed on [smithery.ai](https://smithery.ai/server/mariojillesca/swipr) and [mcp.so](https://mcp.so/server/swipr/nochinxx). If your MCP client has a plugin directory, search for **SwiPR**. If you're self-hosting, point the URL at your own deployment instead of the shared one.
 
 ---
 
