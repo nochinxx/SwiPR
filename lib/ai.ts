@@ -26,7 +26,7 @@ export const models = {
 /** Returns a Sonnet model for the given BYOK key; falls back to the shared gateway. */
 export function getModelForKey(byokKey?: string | null): LanguageModel {
   if (byokKey?.startsWith("sk-ant-")) {
-    return createAnthropic({ apiKey: byokKey })("claude-sonnet-4-6-20251001");
+    return createAnthropic({ apiKey: byokKey })("claude-sonnet-4-6");
   }
   return models.sonnet;
 }

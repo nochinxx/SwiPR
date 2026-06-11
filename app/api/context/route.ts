@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { db, prs, prFiles, contributors } from "@/db";
 import { generateText } from "ai";
-import { models } from "@/lib/ai";
+import { getModelForKey } from "@/lib/ai";
 import { computeRiskScore } from "@/lib/scoring";
 import { relativeTime } from "@/lib/diff";
 import type { AIContext } from "@/app/swipe/_types";
@@ -28,7 +28,7 @@ function fallbackSummary(
   return [
     `Changes ${changes} lines across ${files}.`,
     `Author has ${totalPrs} prior ${prWord} in this repo.`,
-    "AI analysis unavailable — add a credit card to Vercel AI Gateway to enable.",
+    "AI summary unavailable — set your Anthropic key (⌘ button) to enable.",
   ];
 }
 
@@ -40,6 +40,7 @@ function toSimilarState(state: string): "merged" | "closed" | "open" {
 
 export async function GET(req: NextRequest) {
   const prId = new URL(req.url).searchParams.get("prId");
+  const userApiKey = req.headers.get("x-user-api-key");
   if (!prId) return NextResponse.json({ error: "prId is required" }, { status: 400 });
 
   const [pr] = await db.select().from(prs).where(eq(prs.id, prId)).limit(1);
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
       if (pr.aiSummary && pr.aiSummary.length > 0) return pr.aiSummary;
       try {
         const result = await generateText({
-          model: models.sonnet,
+          model: getModelForKey(userApiKey),
           messages: [{
             role: "user",
             content: [

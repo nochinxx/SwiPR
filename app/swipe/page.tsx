@@ -20,6 +20,49 @@ import { ViewDependencyGraph } from './_components/view-dependency-graph'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
 
+function formatDeeperResult(action: DeeperAction, data: Record<string, unknown>): string {
+  if (data.error) return `Error: ${typeof data.error === 'string' ? data.error : 'Unknown error'}`
+
+  switch (action) {
+    case 'risk_verbose': {
+      const score = data.score as number
+      const rationale = data.rationale as string
+      const reasons = (data.reasons as string[]).map((r) => `• ${r}`).join('\n')
+      return `Risk score: ${score}/100\n\n${rationale}\n\nFactors:\n${reasons}`
+    }
+    case 'callers': {
+      const results = data.results as { filename: string; hits: { line: number; content: string }[] }[]
+      if (!results.length) return `No callers found for "${String(data.functionName)}".`
+      return results
+        .map((r) => {
+          const hits = r.hits.map((h) => `  L${h.line}: ${h.content.trim()}`).join('\n')
+          return `${r.filename}:\n${hits}`
+        })
+        .join('\n\n')
+    }
+    case 'tests': {
+      const related = data.relatedTests as string[]
+      const modules = data.changedModules as string[]
+      const note = data.note as string | undefined
+      if (note || !related.length) {
+        return `Changed: ${modules.join(', ')}\n\nNo test files found covering these modules. Consider adding tests.`
+      }
+      const list = related.map((f) => `• ${f}`).join('\n')
+      return `Changed: ${modules.join(', ')}\n\nRelated tests:\n${list}`
+    }
+    case 'compare': {
+      const files = data.files as { filename: string; status: string; additions: number; deletions: number; contentSnippet: string | null }[]
+      return files
+        .map((f) => {
+          const stats = `+${f.additions}/-${f.deletions}`
+          const snippet = f.contentSnippet ? '\n' + f.contentSnippet.slice(0, 200).trim() + '…' : ''
+          return `${f.filename} [${f.status}] ${stats}${snippet}`
+        })
+        .join('\n\n')
+    }
+  }
+}
+
 function parseRepoInput(input: string): { owner: string; repo: string } | null {
   const urlMatch = /github\.com\/([^/]+)\/([^/\s]+)/.exec(input)
   if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2].replace(/\.git$/, '') }
@@ -246,7 +289,7 @@ export default function SwipePage() {
     try {
       await fetch('/api/ingest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(userApiKey ? { 'x-user-api-key': userApiKey } : {}) },
         body: JSON.stringify({ owner, name: repo }),
       })
       setIsIngesting(false)
@@ -270,7 +313,9 @@ export default function SwipePage() {
     setIsLoadingContext(true)
     setContext(null)
     try {
-      const res = await fetch(`/api/context?prId=${pr.id}`)
+      const res = await fetch(`/api/context?prId=${pr.id}`, {
+        headers: userApiKey ? { 'x-user-api-key': userApiKey } : {},
+      })
       const ctx = await res.json()
       setContext(ctx)
     } catch (error) {
@@ -378,7 +423,7 @@ export default function SwipePage() {
           body: JSON.stringify({ action, prId: pr.id, repoId }),
         })
         const data = await res.json()
-        return JSON.stringify(data, null, 2)
+        return formatDeeperResult(action, data)
       } catch (error) {
         console.error('[swipe] Deeper action failed:', error)
         return 'Failed to fetch result'

@@ -14,7 +14,7 @@ import { db, repos, prs, prFiles, contributors } from "@/db";
 import { fetchOpenPRs, fetchPRFiles, fetchRepoPRHistory } from "@/lib/github";
 import { embedText, embedBatch } from "@/lib/embed";
 import { generateText } from "ai";
-import { models } from "@/lib/ai";
+import { getModelForKey } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   // Require a secret header when INGEST_SECRET is set (production).
@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const userApiKey = req.headers.get("x-user-api-key");
   const body = await req.json();
   const owner = body?.owner?.toString().trim();
   const name = body?.name?.toString().trim();
@@ -153,7 +154,7 @@ export async function POST(req: NextRequest) {
           try {
             const fileList = githubFiles.slice(0, 10).map((f) => f.filename).join(", ");
             const { text } = await generateText({
-              model: models.sonnet,
+              model: getModelForKey(userApiKey),
               messages: [{
                 role: "user",
                 content: [
