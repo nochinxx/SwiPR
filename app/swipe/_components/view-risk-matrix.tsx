@@ -50,10 +50,10 @@ export function ViewRiskMatrix({ prs, currentIndex, onSelect }: Props) {
                 <button
                   key={pr.id}
                   onClick={() => onSelect(i)}
-                  className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-xs transition-all hover:shadow-sm ${
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-xs transition-all ${
                     i === currentIndex
                       ? 'border-[#22C55E] bg-[#22C55E]/5 ring-1 ring-[#22C55E]/30'
-                      : 'border-border bg-card hover:border-muted-foreground/30'
+                      : 'border-border bg-card hover:border-muted-foreground/30 hover:bg-secondary/50'
                   }`}
                 >
                   <span className="shrink-0 font-mono text-[10px] text-muted-foreground">#{pr.number}</span>

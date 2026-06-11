@@ -489,16 +489,16 @@ export default function SwipePage() {
               )}
 
               {viewMode === 'risk-matrix' && (
-                <ViewRiskMatrix prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+                <ViewRiskMatrix prs={prList} currentIndex={currentIndex} onSelect={setCurrentIndex} />
               )}
               {viewMode === 'contributor' && (
-                <ViewContributorFocus prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+                <ViewContributorFocus prs={prList} currentIndex={currentIndex} onSelect={setCurrentIndex} />
               )}
               {viewMode === 'category' && (
-                <ViewCategoryGroup prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+                <ViewCategoryGroup prs={prList} currentIndex={currentIndex} onSelect={setCurrentIndex} />
               )}
               {viewMode === 'deps' && (
-                <ViewDependencyGraph prs={prList} currentIndex={currentIndex} onSelect={(i) => { setCurrentIndex(i); setViewMode('swipe') }} />
+                <ViewDependencyGraph prs={prList} currentIndex={currentIndex} onSelect={setCurrentIndex} />
               )}
             </>
           )}
