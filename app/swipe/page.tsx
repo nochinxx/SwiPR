@@ -471,6 +471,24 @@ export default function SwipePage() {
                 )}
               </div>
 
+              {/* View header */}
+              <div className="mb-4">
+                <h2 className="font-mono text-sm font-semibold text-foreground">
+                  {viewMode === 'swipe' && 'Swipe'}
+                  {viewMode === 'risk-matrix' && 'Risk Matrix'}
+                  {viewMode === 'contributor' && 'By Contributor'}
+                  {viewMode === 'category' && 'By Category'}
+                  {viewMode === 'deps' && 'Dependencies'}
+                </h2>
+                <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                  {viewMode === 'swipe' && 'Swipe right to approve, left to request changes, down to skip'}
+                  {viewMode === 'risk-matrix' && 'PRs ranked by estimated risk — click any row to load details'}
+                  {viewMode === 'contributor' && 'PRs grouped by author — click any card to load details'}
+                  {viewMode === 'category' && 'PRs grouped by change type — click any card to load details'}
+                  {viewMode === 'deps' && 'PRs with cross-references detected in title or body — click any node to load details'}
+                </p>
+              </div>
+
               {viewMode === 'swipe' && (
                 <>
                   <CardStack prs={prList} currentIndex={currentIndex} onSwipe={handleSwipe} impact={impact} isLoadingImpact={isLoadingImpact} />
