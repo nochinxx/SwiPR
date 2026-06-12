@@ -6,6 +6,7 @@
 
 <video src="https://github.com/nochinxx/SwiPR/releases/download/v0.1.0/swipr_demo.mp4" autoplay muted loop playsinline width="100%"></video>
 
+
 ---
 
 ## Why this exists
