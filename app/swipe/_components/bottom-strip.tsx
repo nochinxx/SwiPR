@@ -6,9 +6,10 @@ import type { SessionStats, SwipeAction } from '../_types'
 interface BottomStripProps {
   stats: SessionStats
   onFilterClick?: (action: SwipeAction) => void
+  onSummary?: () => void
 }
 
-export function BottomStrip({ stats, onFilterClick }: BottomStripProps) {
+export function BottomStrip({ stats, onFilterClick, onSummary }: BottomStripProps) {
   const isClickable = !!onFilterClick
 
   return (
@@ -45,7 +46,11 @@ export function BottomStrip({ stats, onFilterClick }: BottomStripProps) {
       </div>
 
       {/* Right: Summary button */}
-      <button className="rounded-lg border border-border bg-card px-4 py-2 font-mono text-sm text-foreground transition-colors hover:bg-secondary">
+      <button
+        onClick={onSummary}
+        disabled={!onSummary}
+        className="rounded-lg border border-border bg-card px-4 py-2 font-mono text-sm text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+      >
         Generate review summary
       </button>
     </footer>

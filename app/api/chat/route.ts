@@ -5,6 +5,7 @@
  */
 
 import { streamText } from "ai";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq, and, sql } from "drizzle-orm";
 import { getModelForKey } from "@/lib/ai";
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
       system: `You are a senior software engineer helping review a GitHub Pull Request.
 Answer questions concisely — reviewers are busy. Lead with the most actionable insight.
 Current PR ID: ${prId ?? "unknown"}. Repo ID: ${repoId ?? "unknown"}.`,
-      messages,
+      messages: messages ?? [],
       tools: {
         risk_score: {
           description: "Get the heuristic risk score (0-100) for the active PR with reasons.",
@@ -100,21 +101,12 @@ Current PR ID: ${prId ?? "unknown"}. Repo ID: ${repoId ?? "unknown"}.`,
       maxSteps: 3,
     });
 
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
   } catch (err) {
-    const msg =
-      err instanceof Error && err.message.includes("credit card")
-        ? "AI chat requires a Vercel AI Gateway credit card. Add one at vercel.com/ai-gateway to enable."
-        : "AI chat is temporarily unavailable.";
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      start(controller) {
-        controller.enqueue(encoder.encode(`0:${JSON.stringify(msg)}\n`));
-        controller.close();
-      },
-    });
-    return new Response(stream, {
-      headers: { "Content-Type": "text/plain; charset=utf-8", "x-vercel-ai-data-stream": "v1" },
-    });
+    console.error("[chat] Error:", err);
+    return NextResponse.json(
+      { error: "AI chat is temporarily unavailable. Add an Anthropic key via the ⌘ button to enable." },
+      { status: 500 }
+    );
   }
 }

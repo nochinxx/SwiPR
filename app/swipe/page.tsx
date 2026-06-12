@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useChat } from '@ai-sdk/react'
+
 import type { PullRequest, SwipeAction, ChatMessage, SessionStats, AIContext, DecisionRecord, ImpactResult } from './_types'
 import { Header } from './_components/header'
 import { CardStack, ActionButtons } from './_components/card-stack'
@@ -210,24 +210,54 @@ export default function SwipePage() {
   const [decisionHistory, setDecisionHistory] = useState<DecisionRecord[]>([])
   const [historyFilter, setHistoryFilter] = useState<SwipeAction | null>(null)
 
-  // useChat for AI panel
-  const { messages: chatMessages, append, isLoading: isChatLoading } = useChat({
-    api: '/api/chat',
-    headers: userApiKey ? { 'x-user-api-key': userApiKey } : {},
-    body: {
-      prId: prList[currentIndex]?.id,
-      repoId,
-      sessionId,
-    },
-  })
+  // Simple streaming chat — avoids @ai-sdk/react v3 protocol issues
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [isChatLoading, setIsChatLoading] = useState(false)
 
-  // Map useChat messages to ChatMessage[]
-  const messages: ChatMessage[] = chatMessages.map((m) => ({
-    id: m.id,
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-    toolCall: m.toolInvocations?.[0]?.toolName,
-  }))
+  const sendChatMessage = useCallback(async (content: string) => {
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content }
+    setMessages((prev) => [...prev, userMsg])
+    setIsChatLoading(true)
+
+    const assistantId = (Date.now() + 1).toString()
+    setMessages((prev) => [...prev, { id: assistantId, role: 'assistant', content: '' }])
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userApiKey ? { 'x-user-api-key': userApiKey } : {}),
+        },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
+          prId: prList[currentIndex]?.id,
+          repoId,
+          sessionId,
+        }),
+      })
+
+      if (!res.ok || !res.body) {
+        setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: 'Chat unavailable. Add an API key via the ⌘ button.' } : m))
+        return
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let accumulated = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        accumulated += decoder.decode(value, { stream: true })
+        setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: accumulated } : m))
+      }
+    } catch {
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: 'Something went wrong. Try again.' } : m))
+    } finally {
+      setIsChatLoading(false)
+    }
+  }, [messages, userApiKey, prList, currentIndex, repoId, sessionId])
 
   const startSession = useCallback(async (repoId: string) => {
     const sessionRes = await fetch('/api/session', {
@@ -402,9 +432,9 @@ export default function SwipePage() {
   // Handle chat message
   const handleSendMessage = useCallback(
     (content: string) => {
-      append({ role: 'user', content })
+      sendChatMessage(content)
     },
-    [append]
+    [sendChatMessage]
   )
 
   // Handle deeper action
@@ -592,7 +622,13 @@ export default function SwipePage() {
         isLoadingImpact={isLoadingImpact}
       />
 
-      <BottomStrip stats={stats} onFilterClick={(action) => setHistoryFilter(action)} />
+      <BottomStrip
+        stats={stats}
+        onFilterClick={(action) => setHistoryFilter(action)}
+        onSummary={() => handleSendMessage(
+          `Summarize my review session so far: I approved ${stats.approved}, requested changes on ${stats.changesRequested}, and skipped ${stats.skipped} PRs. What patterns stand out and what should I focus on next?`
+        )}
+      />
 
       <KeyboardHints open={hintsOpen} onClose={() => setHintsOpen(false)} />
 

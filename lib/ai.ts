@@ -1,5 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 
 if (!process.env.AI_GATEWAY_API_KEY) {
@@ -23,10 +25,20 @@ export const models = {
   embedding: gateway.embedding("openai/text-embedding-3-small"),
 } as const;
 
-/** Returns a Sonnet model for the given BYOK key; falls back to the shared gateway. */
+/**
+ * Returns a language model for the given BYOK key.
+ * Supports Anthropic (sk-ant-), Google/Gemini (AIza), and Groq (gsk_).
+ * Falls back to the shared gateway if no valid key is provided.
+ */
 export function getModelForKey(byokKey?: string | null): LanguageModel {
   if (byokKey?.startsWith("sk-ant-")) {
     return createAnthropic({ apiKey: byokKey })("claude-sonnet-4-6");
+  }
+  if (byokKey?.startsWith("AIza")) {
+    return createGoogleGenerativeAI({ apiKey: byokKey })("gemini-2.0-flash");
+  }
+  if (byokKey?.startsWith("gsk_")) {
+    return createGroq({ apiKey: byokKey })("llama-3.3-70b-versatile");
   }
   return models.sonnet;
 }

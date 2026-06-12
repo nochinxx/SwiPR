@@ -84,7 +84,7 @@ export function Header({ currentPR, totalPRs, streak, defaultRepo = '', apiKey =
         <div className="relative">
           <button
             onClick={() => { setKeyDraft(apiKey); setKeyOpen((v) => !v) }}
-            title={hasKey ? 'Anthropic key set — chat uses your key' : 'Set your Anthropic API key for chat'}
+            title={hasKey ? 'API key set — chat uses your key' : 'Set an API key for chat (Anthropic, Gemini, or Groq)'}
             className={`flex h-7 w-7 items-center justify-center rounded-full border font-mono text-xs transition-colors ${
               hasKey
                 ? 'border-[#FF0080] text-[#FF0080] hover:bg-[#FF0080]/10'
@@ -96,7 +96,7 @@ export function Header({ currentPR, totalPRs, streak, defaultRepo = '', apiKey =
           {keyOpen && (
             <div className="absolute right-0 top-9 z-50 w-72 rounded-lg border border-border bg-background p-3 shadow-lg">
               <p className="mb-2 font-mono text-xs text-muted-foreground">
-                Anthropic API key — used for chat only, never stored on server.
+                API key for chat — never stored on server. Supports Anthropic, Gemini, or Groq.
               </p>
               <input
                 ref={keyInputRef}
@@ -104,12 +104,12 @@ export function Header({ currentPR, totalPRs, streak, defaultRepo = '', apiKey =
                 value={keyDraft}
                 onChange={(e) => setKeyDraft(e.target.value)}
                 onKeyDown={handleKeyKeyDown}
-                placeholder="sk-ant-..."
+                placeholder="sk-ant-... / AIza... / gsk_..."
                 className="w-full rounded border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-[#FF0080] focus:outline-none"
               />
               <div className="mt-2 flex items-center justify-between">
                 <a
-                  href="https://console.anthropic.com/settings/keys"
+                  href="https://console.groq.com/keys"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-mono text-xs text-muted-foreground underline-offset-2 hover:underline"
