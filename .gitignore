@@ -25,3 +25,6 @@ prompts/
 
 # Social copy — kept local, never committed
 social/
+
+# Demo video — hosted via GitHub Releases, too large for git
+public/swipr_demo.mp4
