@@ -4,7 +4,7 @@
 
 [Try the live demo →](https://v0-swipr-build.vercel.app) · [Add to Claude Desktop ↓](#mcp-server) · [Listed on smithery.ai](https://smithery.ai/server/mariojillesca/swipr)
 
-[![SwiPR demo](https://img.youtube.com/vi/FTMN8_TVLn8/maxresdefault.jpg)](https://www.youtube.com/watch?v=FTMN8_TVLn8)
+<video src="https://github.com/user-attachments/assets/66959862-cac2-4747-a6b2-53ef235b61fd" autoplay muted loop playsinline controls width="100%"></video>
 
 
 ---
