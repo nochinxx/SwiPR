@@ -54,13 +54,13 @@ export async function POST(req: NextRequest) {
           messages: [
             {
               role: "user",
-              content: `This PR has a risk score of ${score}/100. Reasons: ${reasons.join("; ")}. Write 2-3 sentences explaining the risk to a code reviewer. Be specific and actionable.`,
+              content: `This PR has a risk score of ${score}/100. Reasons: ${reasons.map((r) => r.text).join("; ")}. Write 2-3 sentences explaining the risk to a code reviewer. Be specific and actionable.`,
             },
           ],
         });
         return NextResponse.json({ score, reasons, rationale: text });
       } catch {
-        return NextResponse.json({ score, reasons, rationale: reasons.join(" ") });
+        return NextResponse.json({ score, reasons, rationale: reasons.map((r) => r.text).join(" ") });
       }
     }
 

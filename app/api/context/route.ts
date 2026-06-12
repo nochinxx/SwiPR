@@ -115,8 +115,10 @@ export async function GET(req: NextRequest) {
   const context: AIContext = {
     risk: {
       score: riskResult.score,
-      rationale: riskResult.reasons[0] ?? "No significant risk factors detected.",
+      rationale: riskResult.reasons[0]?.text ?? "No significant risk factors detected.",
+      reasons: riskResult.reasons,
     },
+    prHtmlUrl: pr.htmlUrl ?? undefined,
     summary: summaryResult.length > 0 ? summaryResult : fallbackSummary(pr, totalPrs),
     similarPRs: similarResult.map((p) => ({
       number: p.number,

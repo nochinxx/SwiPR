@@ -26,9 +26,10 @@ function formatDeeperResult(action: DeeperAction, data: Record<string, unknown>)
   switch (action) {
     case 'risk_verbose': {
       const score = data.score as number
-      const rationale = data.rationale as string
-      const reasons = (data.reasons as string[]).map((r) => `• ${r}`).join('\n')
-      return `Risk score: ${score}/100\n\n${rationale}\n\nFactors:\n${reasons}`
+      const reasons = (data.reasons as { text: string; source: string }[])
+        .map((r) => `• [${r.source}] ${r.text}`)
+        .join('\n')
+      return `Risk score: ${score}/100\n\nFactors:\n${reasons || 'No significant risk factors detected.'}`
     }
     case 'callers': {
       const results = data.results as { filename: string; hits: { line: number; content: string }[] }[]

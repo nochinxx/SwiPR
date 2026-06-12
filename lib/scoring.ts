@@ -16,9 +16,16 @@ const HIGH_RISK_FILENAMES = [
 
 const TEST_FILENAMES = [/\.test\.(ts|tsx|js|jsx)$/, /\.spec\.(ts|tsx|js|jsx)$/, /__tests__\//];
 
+export type RiskSource = 'diff' | 'config' | 'contributor'
+
+export interface RiskReason {
+  text: string;
+  source: RiskSource;
+}
+
 export interface RiskBreakdown {
   score: number; // 0-100
-  reasons: string[];
+  reasons: RiskReason[];
 }
 
 export function computeRiskScore(
@@ -28,64 +35,57 @@ export function computeRiskScore(
   contributorMergedPrs: number
 ): RiskBreakdown {
   let score = 0;
-  const reasons: string[] = [];
+  const reasons: RiskReason[] = [];
 
   const totalLines = pr.additions + pr.deletions;
 
-  // Large diff
   if (totalLines > 500) {
     score += 20;
-    reasons.push(`Large diff: ${totalLines} lines changed`);
+    reasons.push({ text: `Large diff: ${totalLines} lines changed`, source: 'diff' });
   } else if (totalLines > 200) {
     score += 10;
-    reasons.push(`Medium diff: ${totalLines} lines changed`);
+    reasons.push({ text: `Medium diff: ${totalLines} lines changed`, source: 'diff' });
   }
 
-  // Many files
   if (pr.changedFiles > 20) {
     score += 15;
-    reasons.push(`${pr.changedFiles} files changed`);
+    reasons.push({ text: `${pr.changedFiles} files changed`, source: 'diff' });
   } else if (pr.changedFiles > 10) {
     score += 8;
   }
 
-  // High-risk files (configs, lockfiles, CI)
   const riskyFiles = files.filter((f) =>
     HIGH_RISK_FILENAMES.some((re) => re.test(f.filename))
   );
   if (riskyFiles.length > 0) {
     score += 20;
-    reasons.push(`Touches high-risk files: ${riskyFiles.map((f) => f.filename).join(", ")}`);
+    reasons.push({ text: `Touches high-risk files: ${riskyFiles.map((f) => f.filename).join(", ")}`, source: 'config' });
   }
 
-  // No tests changed
   const hasTests = files.some((f) => TEST_FILENAMES.some((re) => re.test(f.filename)));
   if (!hasTests && pr.changedFiles > 3) {
     score += 10;
-    reasons.push("No test files changed");
+    reasons.push({ text: "No test files changed", source: 'diff' });
   }
 
-  // Empty PR body
   if (!pr.body || pr.body.trim().length < 20) {
     score += 10;
-    reasons.push("PR description is missing or very short");
+    reasons.push({ text: "PR description is missing or very short", source: 'diff' });
   }
 
-  // First-time or low-activity contributor
   if (contributorTotalPrs === 0) {
     score += 15;
-    reasons.push("First PR from this contributor");
+    reasons.push({ text: "First PR from this contributor", source: 'contributor' });
   } else if (contributorTotalPrs < 3) {
     score += 8;
-    reasons.push(`New contributor: only ${contributorTotalPrs} prior PRs`);
+    reasons.push({ text: `New contributor: only ${contributorTotalPrs} prior PRs`, source: 'contributor' });
   }
 
-  // Low merge rate (if they have a history)
   if (contributorTotalPrs >= 5) {
     const mergeRate = contributorMergedPrs / contributorTotalPrs;
     if (mergeRate < 0.4) {
       score += 10;
-      reasons.push(`Low historical merge rate: ${Math.round(mergeRate * 100)}%`);
+      reasons.push({ text: `Low historical merge rate: ${Math.round(mergeRate * 100)}%`, source: 'contributor' });
     }
   }
 

@@ -1,9 +1,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import type { AIContext, ChatMessage, SimilarPR, ImpactResult } from '../_types'
+import type { AIContext, ChatMessage, SimilarPR, ImpactResult, RiskSource } from '../_types'
 import { useState } from 'react'
-import { GitMerge, GitPullRequest, X, AlertTriangle, Search, FlaskConical, GitCompare, Loader2 } from 'lucide-react'
+import { GitMerge, GitPullRequest, X, AlertTriangle, Search, FlaskConical, GitCompare, Loader2, ExternalLink } from 'lucide-react'
 import { ImpactMap } from './impact-map'
 
 type DeeperAction = 'risk_verbose' | 'callers' | 'tests' | 'compare'
@@ -67,7 +67,20 @@ export function AIContextPanel({ context, messages, onSendMessage, onDeeperActio
     <div className="flex h-full flex-col">
       {/* Context section */}
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Context</h3>
+          {context.prHtmlUrl && (
+            <a
+              href={context.prHtmlUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 font-mono text-xs text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+            >
+              Open on GitHub
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
 
         {/* Risk card */}
         <motion.div
@@ -83,7 +96,18 @@ export function AIContextPanel({ context, messages, onSendMessage, onDeeperActio
             </span>
             <span className="font-mono text-sm text-muted-foreground">/ 100</span>
           </div>
-          <p className="mt-2 text-sm text-card-foreground">{context.risk.rationale}</p>
+          {context.risk.reasons && context.risk.reasons.length > 0 ? (
+            <ul className="mt-3 space-y-1.5">
+              {context.risk.reasons.map((r) => (
+                <li key={r.text} className="flex items-start gap-2 text-sm">
+                  <SourceBadge source={r.source} />
+                  <span className="text-card-foreground">{r.text}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">No significant risk factors detected.</p>
+          )}
         </motion.div>
 
         {/* Summary card */}
@@ -268,6 +292,26 @@ export function AIContextPanel({ context, messages, onSendMessage, onDeeperActio
         </div>
       </form>
     </div>
+  )
+}
+
+const SOURCE_LABEL: Record<RiskSource, string> = {
+  diff: 'diff',
+  config: 'config',
+  contributor: 'history',
+}
+
+const SOURCE_CLASS: Record<RiskSource, string> = {
+  diff: 'bg-amber-500/10 text-amber-500',
+  config: 'bg-[#DC2626]/10 text-[#DC2626]',
+  contributor: 'bg-blue-500/10 text-blue-500',
+}
+
+function SourceBadge({ source }: { readonly source: RiskSource }) {
+  return (
+    <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider ${SOURCE_CLASS[source]}`}>
+      {SOURCE_LABEL[source]}
+    </span>
   )
 }
 

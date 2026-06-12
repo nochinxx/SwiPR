@@ -28,11 +28,20 @@ export interface DiffLine {
   content: string
 }
 
+export type RiskSource = 'diff' | 'config' | 'contributor'
+
+export interface RiskReason {
+  text: string
+  source: RiskSource
+}
+
 export interface AIContext {
   risk: {
     score: number
     rationale: string
+    reasons: RiskReason[]
   }
+  prHtmlUrl?: string
   summary: string[]
   similarPRs: SimilarPR[]
   contributor: Contributor
